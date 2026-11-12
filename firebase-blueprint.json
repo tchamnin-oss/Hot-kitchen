@@ -2,15 +2,15 @@
   "entities": {
     "KitchenWorkspace": {
       "title": "KitchenWorkspace",
-      "description": "Per-user Hot Kitchen Par Stock workspace configuration storing the active Monday week start date.",
+      "description": "Shared Hot Kitchen Par Stock workspace configuration storing the active Monday week start date.",
       "type": "object",
       "properties": {
-        "ownerId": {
+        "workspaceId": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128,
+          "maxLength": 64,
           "pattern": "^[a-zA-Z0-9_\\-]+$",
-          "description": "Authenticated user UID who owns this kitchen workspace."
+          "description": "Fixed identifier for the kitchen workspace (hot_kitchen)."
         },
         "weekStart": {
           "type": "string",
@@ -30,19 +30,19 @@
           "description": "Server timestamp when the workspace was last updated."
         }
       },
-      "required": ["ownerId", "weekStart", "createdAt", "updatedAt"]
+      "required": ["workspaceId", "weekStart", "createdAt", "updatedAt"]
     },
     "ParStockItem": {
       "title": "ParStockItem",
       "description": "Single Hot Kitchen Par Stock ingredient row with category, unit, and daily Monday-Sunday counts.",
       "type": "object",
       "properties": {
-        "ownerId": {
+        "workspaceId": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128,
+          "maxLength": 64,
           "pattern": "^[a-zA-Z0-9_\\-]+$",
-          "description": "Authenticated user UID who owns this stock item."
+          "description": "Identifier of the parent kitchen workspace (hot_kitchen)."
         },
         "sortOrder": {
           "type": "number",
@@ -106,7 +106,7 @@
         }
       },
       "required": [
-        "ownerId",
+        "workspaceId",
         "sortOrder",
         "category",
         "item",
@@ -128,13 +128,13 @@
       "schema": {
         "$ref": "#/entities/KitchenWorkspace"
       },
-      "description": "Root kitchen workspace document keyed by the authenticated user's UID."
+      "description": "Shared Hot Kitchen workspace document keyed by hot_kitchen."
     },
     "/kitchens/{kitchenId}/items/{itemId}": {
       "schema": {
         "$ref": "#/entities/ParStockItem"
       },
-      "description": "Subcollection of Hot Kitchen Par Stock items belonging to the workspace."
+      "description": "Subcollection of Hot Kitchen Par Stock items belonging to the shared workspace."
     }
   }
 }

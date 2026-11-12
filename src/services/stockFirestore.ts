@@ -17,6 +17,8 @@ import { DEFAULT_MONDAY, DEFAULT_STOCK_DATA } from '../data/defaultStock';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import type { DayKey, StockItem } from '../types/stock';
 
+export const WORKSPACE_ID = 'hot_kitchen';
+
 const MAX_CATEGORY_LEN = 80;
 const MAX_ITEM_LEN = 160;
 const MAX_UNIT_LEN = 40;
@@ -39,9 +41,9 @@ function sanitizeWeekStart(weekStart: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(weekStart) ? weekStart : DEFAULT_MONDAY;
 }
 
-export async function ensureKitchenSeeded(uid: string): Promise<void> {
-  const kitchenPath = `kitchens/${uid}`;
-  const kitchenRef = doc(db, 'kitchens', uid);
+export async function ensureKitchenSeeded(): Promise<void> {
+  const kitchenPath = `kitchens/${WORKSPACE_ID}`;
+  const kitchenRef = doc(db, 'kitchens', WORKSPACE_ID);
 
   let kitchenExists = false;
   try {
@@ -51,38 +53,47 @@ export async function ensureKitchenSeeded(uid: string): Promise<void> {
     handleFirestoreError(error, OperationType.GET, kitchenPath);
   }
 
+  let createdByUs = false;
   if (!kitchenExists) {
     try {
       await setDoc(kitchenRef, {
-        ownerId: uid,
+        workspaceId: WORKSPACE_ID,
         weekStart: DEFAULT_MONDAY,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      createdByUs = true;
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, kitchenPath);
+      // Handle race condition if another concurrent visitor just created the workspace
+      const recheck = await getDoc(kitchenRef).catch(() => null);
+      if (!recheck?.exists()) {
+        handleFirestoreError(error, OperationType.CREATE, kitchenPath);
+      }
     }
   }
 
-  const itemsPath = `kitchens/${uid}/items`;
+  const itemsPath = `kitchens/${WORKSPACE_ID}/items`;
   let existingCount = 0;
   try {
     const existingSnap = await getDocs(
-      query(collection(db, 'kitchens', uid, 'items'), where('ownerId', '==', uid))
+      query(
+        collection(db, 'kitchens', WORKSPACE_ID, 'items'),
+        where('workspaceId', '==', WORKSPACE_ID)
+      )
     );
     existingCount = existingSnap.size;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, itemsPath);
   }
 
-  if (!kitchenExists && existingCount === 0) {
+  if (createdByUs && existingCount === 0) {
     try {
       const batch = writeBatch(db);
       DEFAULT_STOCK_DATA.forEach((row, index) => {
         const docId = `item_${row.id}`;
-        const itemRef = doc(db, 'kitchens', uid, 'items', docId);
+        const itemRef = doc(db, 'kitchens', WORKSPACE_ID, 'items', docId);
         batch.set(itemRef, {
-          ownerId: uid,
+          workspaceId: WORKSPACE_ID,
           sortOrder: index + 1,
           category: row.category.slice(0, MAX_CATEGORY_LEN),
           item: row.item.slice(0, MAX_ITEM_LEN),
@@ -106,12 +117,11 @@ export async function ensureKitchenSeeded(uid: string): Promise<void> {
 }
 
 export function subscribeKitchenWorkspace(
-  uid: string,
   onData: (weekStart: string) => void,
   onError: (err: Error) => void
 ): Unsubscribe {
-  const kitchenPath = `kitchens/${uid}`;
-  const kitchenRef = doc(db, 'kitchens', uid);
+  const kitchenPath = `kitchens/${WORKSPACE_ID}`;
+  const kitchenRef = doc(db, 'kitchens', WORKSPACE_ID);
 
   return onSnapshot(
     kitchenRef,
@@ -134,14 +144,13 @@ export function subscribeKitchenWorkspace(
 }
 
 export function subscribeStockItems(
-  uid: string,
   onData: (items: StockItem[]) => void,
   onError: (err: Error) => void
 ): Unsubscribe {
-  const itemsPath = `kitchens/${uid}/items`;
+  const itemsPath = `kitchens/${WORKSPACE_ID}/items`;
   const itemsQuery = query(
-    collection(db, 'kitchens', uid, 'items'),
-    where('ownerId', '==', uid)
+    collection(db, 'kitchens', WORKSPACE_ID, 'items'),
+    where('workspaceId', '==', WORKSPACE_ID)
   );
 
   return onSnapshot(
@@ -183,11 +192,11 @@ export function subscribeStockItems(
   );
 }
 
-export async function updateKitchenWeekStart(uid: string, weekStart: string): Promise<void> {
-  const kitchenPath = `kitchens/${uid}`;
+export async function updateKitchenWeekStart(weekStart: string): Promise<void> {
+  const kitchenPath = `kitchens/${WORKSPACE_ID}`;
   const validWeekStart = sanitizeWeekStart(weekStart);
   try {
-    await updateDoc(doc(db, 'kitchens', uid), {
+    await updateDoc(doc(db, 'kitchens', WORKSPACE_ID), {
       weekStart: validWeekStart,
       updatedAt: serverTimestamp(),
     });
@@ -197,14 +206,13 @@ export async function updateKitchenWeekStart(uid: string, weekStart: string): Pr
 }
 
 export async function updateStockItemDay(
-  uid: string,
   docId: string,
   day: DayKey,
   value: number | ''
 ): Promise<void> {
-  const itemPath = `kitchens/${uid}/items/${docId}`;
+  const itemPath = `kitchens/${WORKSPACE_ID}/items/${docId}`;
   try {
-    await updateDoc(doc(db, 'kitchens', uid, 'items', docId), {
+    await updateDoc(doc(db, 'kitchens', WORKSPACE_ID, 'items', docId), {
       [day]: sanitizeDayQty(value),
       updatedAt: serverTimestamp(),
     });
@@ -213,8 +221,28 @@ export async function updateStockItemDay(
   }
 }
 
+export async function updateStockItemDetails(
+  docId: string,
+  payload: {
+    category: string;
+    item: string;
+    unit: string;
+  }
+): Promise<void> {
+  const itemPath = `kitchens/${WORKSPACE_ID}/items/${docId}`;
+  try {
+    await updateDoc(doc(db, 'kitchens', WORKSPACE_ID, 'items', docId), {
+      category: payload.category.trim().slice(0, MAX_CATEGORY_LEN) || 'GENERAL',
+      item: payload.item.trim().slice(0, MAX_ITEM_LEN),
+      unit: payload.unit.trim().toUpperCase().slice(0, MAX_UNIT_LEN) || 'PCS',
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, itemPath);
+  }
+}
+
 export async function addStockItemToFirestore(
-  uid: string,
   payload: {
     category: string;
     item: string;
@@ -223,13 +251,13 @@ export async function addStockItemToFirestore(
   },
   nextSortOrder: number
 ): Promise<void> {
-  const itemsCol = collection(db, 'kitchens', uid, 'items');
+  const itemsCol = collection(db, 'kitchens', WORKSPACE_ID, 'items');
   const newDocRef = doc(itemsCol);
-  const itemPath = `kitchens/${uid}/items/${newDocRef.id}`;
+  const itemPath = `kitchens/${WORKSPACE_ID}/items/${newDocRef.id}`;
 
   try {
     await setDoc(newDocRef, {
-      ownerId: uid,
+      workspaceId: WORKSPACE_ID,
       sortOrder: Math.min(100000, Math.max(1, Math.round(nextSortOrder))),
       category: payload.category.trim().slice(0, MAX_CATEGORY_LEN) || 'GENERAL',
       item: payload.item.trim().slice(0, MAX_ITEM_LEN),
@@ -249,24 +277,26 @@ export async function addStockItemToFirestore(
   }
 }
 
-export async function deleteStockItemFromFirestore(uid: string, docId: string): Promise<void> {
-  const itemPath = `kitchens/${uid}/items/${docId}`;
+export async function deleteStockItemFromFirestore(docId: string): Promise<void> {
+  const itemPath = `kitchens/${WORKSPACE_ID}/items/${docId}`;
   try {
-    await deleteDoc(doc(db, 'kitchens', uid, 'items', docId));
+    await deleteDoc(doc(db, 'kitchens', WORKSPACE_ID, 'items', docId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, itemPath);
   }
 }
 
-export async function resetKitchenToDefault(uid: string): Promise<void> {
-  const itemsPath = `kitchens/${uid}/items`;
-  const kitchenPath = `kitchens/${uid}`;
+export async function resetKitchenToDefault(): Promise<void> {
+  const itemsPath = `kitchens/${WORKSPACE_ID}/items`;
+  const kitchenPath = `kitchens/${WORKSPACE_ID}`;
 
-  // 1. Delete existing item docs in batches of <= 400
   let existingDocs;
   try {
     const snap = await getDocs(
-      query(collection(db, 'kitchens', uid, 'items'), where('ownerId', '==', uid))
+      query(
+        collection(db, 'kitchens', WORKSPACE_ID, 'items'),
+        where('workspaceId', '==', WORKSPACE_ID)
+      )
     );
     existingDocs = snap.docs;
   } catch (error) {
@@ -286,9 +316,8 @@ export async function resetKitchenToDefault(uid: string): Promise<void> {
     }
   }
 
-  // 2. Reset kitchen weekStart to default Monday
   try {
-    await updateDoc(doc(db, 'kitchens', uid), {
+    await updateDoc(doc(db, 'kitchens', WORKSPACE_ID), {
       weekStart: DEFAULT_MONDAY,
       updatedAt: serverTimestamp(),
     });
@@ -296,14 +325,13 @@ export async function resetKitchenToDefault(uid: string): Promise<void> {
     handleFirestoreError(error, OperationType.UPDATE, kitchenPath);
   }
 
-  // 3. Re-seed all 44 default items with fresh timestamps
   try {
     const createBatch = writeBatch(db);
     DEFAULT_STOCK_DATA.forEach((row, index) => {
       const docId = `item_${row.id}`;
-      const itemRef = doc(db, 'kitchens', uid, 'items', docId);
+      const itemRef = doc(db, 'kitchens', WORKSPACE_ID, 'items', docId);
       createBatch.set(itemRef, {
-        ownerId: uid,
+        workspaceId: WORKSPACE_ID,
         sortOrder: index + 1,
         category: row.category.slice(0, MAX_CATEGORY_LEN),
         item: row.item.slice(0, MAX_ITEM_LEN),

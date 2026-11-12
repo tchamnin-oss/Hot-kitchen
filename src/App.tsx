@@ -10,10 +10,8 @@ import {
   Download,
   Folder,
   Info,
-  Loader2,
-  LogIn,
-  LogOut,
   PackageSearch,
+  Pencil,
   PlusCircle,
   Printer,
   RotateCcw,
@@ -23,8 +21,8 @@ import {
 } from 'lucide-react';
 import { AddItemModal } from './components/AddItemModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { EditItemModal } from './components/EditItemModal';
 import { SummaryReportModal } from './components/SummaryReportModal';
-import { useFirebase } from './context/FirebaseContext';
 import { DEFAULT_MONDAY } from './data/defaultStock';
 import { firebaseProjectInfo } from './firebase';
 import {
@@ -36,6 +34,7 @@ import {
   subscribeStockItems,
   updateKitchenWeekStart,
   updateStockItemDay,
+  updateStockItemDetails,
 } from './services/stockFirestore';
 import { DAY_KEYS, DAY_LABELS, type DayKey, type StockItem } from './types/stock';
 import {
@@ -50,12 +49,9 @@ import {
 } from './utils/stockUtils';
 
 export function App() {
-  const { user, authReady, isSigningIn, authError, signInWithGoogle, signOutUser } =
-    useFirebase();
-
   const [stockData, setStockData] = useState<StockItem[]>([]);
   const [weekStart, setWeekStart] = useState<string>(DEFAULT_MONDAY);
-  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [quotaUpgradeUrl, setQuotaUpgradeUrl] = useState<string | null>(null);
 
@@ -63,6 +59,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
   const [printMode, setPrintMode] = useState<'main' | 'summary'>('main');
 
@@ -123,19 +120,7 @@ export function App() {
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
 
-  // Attach Firestore listeners ONLY when auth is ready and user is authenticated
   useEffect(() => {
-    if (!authReady) return;
-
-    if (!user) {
-      setStockData([]);
-      setWeekStart(DEFAULT_MONDAY);
-      setIsLoadingData(false);
-      setSyncError(null);
-      setQuotaUpgradeUrl(null);
-      return;
-    }
-
     let isMounted = true;
     let unsubWorkspace: (() => void) | undefined;
     let unsubItems: (() => void) | undefined;
@@ -144,12 +129,11 @@ export function App() {
     setSyncError(null);
     setQuotaUpgradeUrl(null);
 
-    ensureKitchenSeeded(user.uid)
+    ensureKitchenSeeded()
       .then(() => {
         if (!isMounted) return;
 
         unsubWorkspace = subscribeKitchenWorkspace(
-          user.uid,
           (nextWeekStart) => {
             if (!isMounted) return;
             setWeekStart(nextWeekStart);
@@ -161,10 +145,21 @@ export function App() {
         );
 
         unsubItems = subscribeStockItems(
-          user.uid,
           (items) => {
             if (!isMounted) return;
-            setStockData(items);
+            const merged = items.map((row) => {
+              if (!row.docId) return row;
+              let nextRow = row;
+              DAY_KEYS.forEach((day) => {
+                const pendingKey = `${row.docId}_${day}`;
+                if (pendingKey in pendingValuesRef.current) {
+                  if (nextRow === row) nextRow = { ...row };
+                  nextRow[day] = pendingValuesRef.current[pendingKey];
+                }
+              });
+              return nextRow;
+            });
+            setStockData(merged);
             setIsLoadingData(false);
           },
           (err) => {
@@ -185,7 +180,7 @@ export function App() {
       unsubWorkspace?.();
       unsubItems?.();
     };
-  }, [authReady, user, handleRuntimeError]);
+  }, [handleRuntimeError]);
 
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart]);
   const categories = useMemo(() => getUniqueCategories(stockData), [stockData]);
@@ -210,11 +205,10 @@ export function App() {
   }, [stockData, currentCategory, searchQuery]);
 
   const handleChangeWeek = async (direction: -1 | 1) => {
-    if (!user) return;
     const nextStart = addDays(weekStart, direction * 7);
     setWeekStart(nextStart);
     try {
-      await updateKitchenWeekStart(user.uid, nextStart);
+      await updateKitchenWeekStart(nextStart);
       showToast(`เปลี่ยนเป็นรอบ ${formatDisplayDate(nextStart)}`);
     } catch (err) {
       handleRuntimeError(err);
@@ -222,11 +216,11 @@ export function App() {
   };
 
   const handleStartDateChange = async (val: string) => {
-    if (!val || !user) return;
+    if (!val) return;
     const monday = getMonday(val);
     setWeekStart(monday);
     try {
-      await updateKitchenWeekStart(user.uid, monday);
+      await updateKitchenWeekStart(monday);
       showToast(`เปลี่ยนรอบสัปดาห์เป็น ${formatDisplayDate(monday)} แล้ว`);
     } catch (err) {
       handleRuntimeError(err);
@@ -235,7 +229,6 @@ export function App() {
 
   const commitDayUpdate = useCallback(
     async (docId: string, day: DayKey, nextVal: number | '') => {
-      if (!user) return;
       const key = `${docId}_${day}`;
       if (pendingTimersRef.current[key]) {
         window.clearTimeout(pendingTimersRef.current[key]);
@@ -244,17 +237,17 @@ export function App() {
       delete pendingValuesRef.current[key];
 
       try {
-        await updateStockItemDay(user.uid, docId, day, nextVal);
+        await updateStockItemDay(docId, day, nextVal);
         showToast('บันทึกข้อมูลลง Firebase แล้ว');
       } catch (err) {
         handleRuntimeError(err);
       }
     },
-    [user, showToast, handleRuntimeError]
+    [showToast, handleRuntimeError]
   );
 
   const handleUpdateStock = (row: StockItem, day: DayKey, rawValue: string) => {
-    if (!user || !row.docId) return;
+    if (!row.docId) return;
     let nextVal: number | '' = '';
     if (rawValue !== '') {
       const parsed = Number(rawValue);
@@ -266,7 +259,6 @@ export function App() {
     const key = `${docId}_${day}`;
     pendingValuesRef.current[key] = nextVal;
 
-    // Immediate optimistic local update
     setStockData((prev) =>
       prev.map((item) => (item.docId === docId ? { ...item, [day]: nextVal } : item))
     );
@@ -293,13 +285,12 @@ export function App() {
     unit: string;
     initialMon: number | '';
   }) => {
-    if (!user) return;
     const maxSortOrder = stockData.reduce(
       (max, row) => Math.max(max, row.sortOrder ?? row.id ?? 0),
       0
     );
     try {
-      await addStockItemToFirestore(user.uid, payload, maxSortOrder + 1);
+      await addStockItemToFirestore(payload, maxSortOrder + 1);
       setIsAddModalOpen(false);
       showToast(`เพิ่มวัตถุดิบ "${payload.item}" เรียบร้อยแล้ว`);
     } catch (err) {
@@ -307,8 +298,25 @@ export function App() {
     }
   };
 
+  const handleEditItem = async (
+    docId: string,
+    payload: {
+      category: string;
+      item: string;
+      unit: string;
+    }
+  ) => {
+    try {
+      await updateStockItemDetails(docId, payload);
+      setEditingItem(null);
+      showToast(`แก้ไขข้อมูล "${payload.item}" เรียบร้อยแล้ว`);
+    } catch (err) {
+      handleRuntimeError(err);
+    }
+  };
+
   const handleConfirmAction = async () => {
-    if (!confirmState || !user) return;
+    if (!confirmState) return;
     const currentConfirm = confirmState;
     setConfirmState(null);
 
@@ -316,7 +324,7 @@ export function App() {
       const target = currentConfirm.item;
       if (!target.docId) return;
       try {
-        await deleteStockItemFromFirestore(user.uid, target.docId);
+        await deleteStockItemFromFirestore(target.docId);
         showToast(`ลบวัตถุดิบ "${target.item}" เรียบร้อยแล้ว`);
       } catch (err) {
         handleRuntimeError(err);
@@ -324,7 +332,7 @@ export function App() {
     } else if (currentConfirm.type === 'reset') {
       setIsLoadingData(true);
       try {
-        await resetKitchenToDefault(user.uid);
+        await resetKitchenToDefault();
         setCurrentCategory('ALL');
         setSearchQuery('');
         showToast('รีเซ็ตข้อมูลทั้งหมดเรียบร้อยแล้ว');
@@ -350,83 +358,6 @@ export function App() {
     exportStockToCSV(stockData, weekStart);
     showToast('ส่งออกไฟล์ CSV เรียบร้อยแล้ว');
   };
-
-  // Loading auth state
-  if (!authReady) {
-    return (
-      <div className="bg-slate-100 text-slate-800 min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-6 py-5 flex items-center gap-3">
-          <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
-          <span className="text-sm font-medium text-slate-700">
-            กำลังเชื่อมต่อระบบ Firebase...
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  // Unauthenticated gate screen matching Hot Kitchen aesthetic
-  if (!user) {
-    return (
-      <div className="bg-slate-100 text-slate-800 min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 max-w-md w-full overflow-hidden">
-          <div className="bg-slate-900 text-white px-6 py-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 text-xs font-bold bg-amber-500 text-white rounded">
-                KITCHEN OPS
-              </span>
-              <span className="text-xs text-slate-400 font-medium">
-                CLOUD SYNC ENABLED
-              </span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight">PAR STOCK (HOT KITCHEN)</h1>
-            <p className="text-xs text-slate-300 mt-1">
-              ระบบบันทึกและนับสต๊อกวัตถุดิบครัวร้อนประจำสัปดาห์ พร้อมจัดเก็บข้อมูลบน Firebase Firestore
-            </p>
-          </div>
-
-          <div className="p-6 space-y-5">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
-              <Cloud className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-semibold">จัดเก็บข้อมูลบนคลาวด์แบบเรียลไทม์</p>
-                <p className="text-amber-800/90 leading-relaxed">
-                  เข้าสู่ระบบด้วยบัญชี Google เพื่อบันทึกและซิงค์รายการวัตถุดิบ 44 รายการตั้งต้น
-                  พร้อมยอดนับรายวันของครัวร้อนของคุณอย่างปลอดภัย
-                </p>
-              </div>
-            </div>
-
-            {authError && (
-              <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl p-3 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <button
-              type="button"
-              disabled={isSigningIn}
-              onClick={signInWithGoogle}
-              className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-70 text-white font-semibold text-sm rounded-xl shadow-sm transition flex items-center justify-center gap-2"
-            >
-              {isSigningIn ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>กำลังเข้าสู่ระบบ...</span>
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  <span>เข้าสู่ระบบด้วย Google</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-6 pb-20 print:bg-white print:p-0">
@@ -476,21 +407,6 @@ export function App() {
                   className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded transition no-print"
                 >
                   <ChevronRight className="w-3.5 h-3.5" strokeWidth={2.5} />
-                </button>
-              </div>
-
-              {/* Signed-in Google Account */}
-              <div className="inline-flex items-center gap-2 text-xs text-slate-500 no-print ml-1">
-                <Cloud className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="truncate max-w-[180px]">{user.email}</span>
-                <button
-                  type="button"
-                  onClick={signOutUser}
-                  className="text-slate-500 hover:text-rose-600 font-medium inline-flex items-center gap-1 transition whitespace-nowrap shrink-0"
-                  title="ออกจากระบบ"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>ออกจากระบบ</span>
                 </button>
               </div>
             </div>
@@ -789,15 +705,26 @@ export function App() {
                           </td>
 
                           <td className="py-2.5 px-2 text-center no-print">
-                            <button
-                              type="button"
-                              onClick={() => setConfirmState({ type: 'delete', item: row })}
-                              title="ลบวัตถุดิบนี้"
-                              aria-label={`ลบ ${row.item}`}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition opacity-60 group-hover:opacity-100"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="inline-flex items-center justify-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingItem(row)}
+                                title="แก้ไขวัตถุดิบนี้"
+                                aria-label={`แก้ไข ${row.item}`}
+                                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition opacity-70 group-hover:opacity-100"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmState({ type: 'delete', item: row })}
+                                title="ลบวัตถุดิบนี้"
+                                aria-label={`ลบ ${row.item}`}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition opacity-70 group-hover:opacity-100"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       </React.Fragment>
@@ -822,7 +749,7 @@ export function App() {
           </div>
           <div className="text-slate-600 font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5">
             <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-            <span>บันทึกอัตโนมัติบน Firebase Firestore</span>
+            <span>ซิงค์เรียลไทม์บน Firebase Firestore • ทุกคนแก้ไขร่วมกันได้</span>
           </div>
         </div>
       </div>
@@ -843,6 +770,14 @@ export function App() {
         categories={categories}
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddItem}
+      />
+
+      {/* Edit Item Modal */}
+      <EditItemModal
+        item={editingItem}
+        categories={categories}
+        onClose={() => setEditingItem(null)}
+        onSave={handleEditItem}
       />
 
       {/* Custom Confirmation Modal (Delete / Reset) */}

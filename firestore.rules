@@ -6,14 +6,6 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
-
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -31,13 +23,10 @@ service cloud.firestore {
     }
 
     function isValidKitchen(data) {
-      return data.keys().hasAll(['ownerId', 'weekStart', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['ownerId', 'weekStart', 'createdAt', 'updatedAt'])
-        && data.ownerId is string
-        && data.ownerId.size() >= 1
-        && data.ownerId.size() <= 128
-        && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
-        && data.ownerId == request.auth.uid
+      return data.keys().hasAll(['workspaceId', 'weekStart', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['workspaceId', 'weekStart', 'createdAt', 'updatedAt'])
+        && data.workspaceId is string
+        && data.workspaceId == 'hot_kitchen'
         && data.weekStart is string
         && data.weekStart.size() == 10
         && data.weekStart.matches('^\\d{4}-\\d{2}-\\d{2}$')
@@ -47,20 +36,17 @@ service cloud.firestore {
 
     function isValidStockItem(data) {
       return data.keys().hasAll([
-          'ownerId', 'sortOrder', 'category', 'item', 'unit',
+          'workspaceId', 'sortOrder', 'category', 'item', 'unit',
           'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
           'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'ownerId', 'sortOrder', 'category', 'item', 'unit',
+          'workspaceId', 'sortOrder', 'category', 'item', 'unit',
           'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
           'createdAt', 'updatedAt'
         ])
-        && data.ownerId is string
-        && data.ownerId.size() >= 1
-        && data.ownerId.size() <= 128
-        && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
-        && data.ownerId == request.auth.uid
+        && data.workspaceId is string
+        && data.workspaceId == 'hot_kitchen'
         && (data.sortOrder is int || data.sortOrder is float)
         && data.sortOrder >= 0
         && data.sortOrder <= 100000
@@ -84,68 +70,57 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
-    function isKitchenOwner(kitchenId) {
-      return isVerifiedUser()
-        && get(/databases/$(database)/documents/kitchens/$(kitchenId)).data.ownerId == request.auth.uid;
+    function kitchenExists(kitchenId) {
+      return kitchenId == 'hot_kitchen'
+        && exists(/databases/$(database)/documents/kitchens/$(kitchenId));
     }
 
     match /kitchens/{kitchenId} {
-      allow get: if isVerifiedUser()
-        && isValidId(kitchenId)
-        && kitchenId == request.auth.uid
-        && (resource == null || existing().ownerId == request.auth.uid);
+      allow get: if isValidId(kitchenId) && kitchenId == 'hot_kitchen';
 
       allow list: if false;
 
-      allow create: if isVerifiedUser()
-        && isValidId(kitchenId)
-        && kitchenId == request.auth.uid
+      allow create: if isValidId(kitchenId)
+        && kitchenId == 'hot_kitchen'
         && isValidKitchen(incoming())
         && incoming().createdAt == request.time
         && incoming().updatedAt == request.time;
 
-      allow update: if isVerifiedUser()
-        && isValidId(kitchenId)
+      allow update: if isValidId(kitchenId)
+        && kitchenId == 'hot_kitchen'
         && isValidKitchen(incoming())
-        && existing().ownerId == request.auth.uid
-        && incoming().ownerId == existing().ownerId
+        && incoming().workspaceId == existing().workspaceId
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly(['weekStart', 'updatedAt']);
 
-      allow delete: if isVerifiedUser()
-        && isValidId(kitchenId)
-        && existing().ownerId == request.auth.uid;
+      allow delete: if false;
 
       match /items/{itemId} {
-        allow get: if isVerifiedUser()
-          && isValidId(kitchenId)
+        allow get: if isValidId(kitchenId)
+          && kitchenId == 'hot_kitchen'
           && isValidId(itemId)
-          && isKitchenOwner(kitchenId)
-          && (resource == null || existing().ownerId == request.auth.uid);
+          && kitchenExists(kitchenId);
 
-        allow list: if isVerifiedUser()
-          && kitchenId == request.auth.uid
-          && existing().ownerId == request.auth.uid;
+        allow list: if kitchenId == 'hot_kitchen'
+          && existing().workspaceId == 'hot_kitchen';
 
-        allow create: if isVerifiedUser()
-          && isValidId(kitchenId)
+        allow create: if isValidId(kitchenId)
+          && kitchenId == 'hot_kitchen'
           && isValidId(itemId)
-          && kitchenId == request.auth.uid
           && isValidStockItem(incoming())
           && incoming().createdAt == request.time
           && incoming().updatedAt == request.time
-          && isKitchenOwner(kitchenId);
+          && kitchenExists(kitchenId);
 
-        allow update: if isVerifiedUser()
-          && isValidId(kitchenId)
+        allow update: if isValidId(kitchenId)
+          && kitchenId == 'hot_kitchen'
           && isValidId(itemId)
           && isValidStockItem(incoming())
-          && existing().ownerId == request.auth.uid
-          && incoming().ownerId == existing().ownerId
+          && incoming().workspaceId == existing().workspaceId
           && incoming().createdAt == existing().createdAt
           && incoming().updatedAt == request.time
-          && isKitchenOwner(kitchenId)
+          && kitchenExists(kitchenId)
           && (
             incoming().diff(existing()).affectedKeys().hasOnly([
               'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'updatedAt'
@@ -155,11 +130,11 @@ service cloud.firestore {
             ])
           );
 
-        allow delete: if isVerifiedUser()
-          && isValidId(kitchenId)
+        allow delete: if isValidId(kitchenId)
+          && kitchenId == 'hot_kitchen'
           && isValidId(itemId)
-          && existing().ownerId == request.auth.uid
-          && isKitchenOwner(kitchenId);
+          && existing().workspaceId == 'hot_kitchen'
+          && kitchenExists(kitchenId);
       }
     }
   }

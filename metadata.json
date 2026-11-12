@@ -1,0 +1,6 @@
+{
+  "name": "Par Stock Management - Hot Kitchen",
+  "description": "Weekly Hot Kitchen Par Stock inventory tracking, daily count entry, category filtering, CSV export, and printable PNG summary reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

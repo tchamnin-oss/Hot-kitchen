@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidDayQty(val) {
+      return val == null || ((val is int || val is float) && val >= 0 && val <= 1000000);
+    }
+
+    function isValidKitchen(data) {
+      return data.keys().hasAll(['ownerId', 'weekStart', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'weekStart', 'createdAt', 'updatedAt'])
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && data.weekStart is string
+        && data.weekStart.size() == 10
+        && data.weekStart.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidStockItem(data) {
+      return data.keys().hasAll([
+          'ownerId', 'sortOrder', 'category', 'item', 'unit',
+          'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'sortOrder', 'category', 'item', 'unit',
+          'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+          'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == request.auth.uid
+        && (data.sortOrder is int || data.sortOrder is float)
+        && data.sortOrder >= 0
+        && data.sortOrder <= 100000
+        && data.category is string
+        && data.category.size() >= 1
+        && data.category.size() <= 80
+        && data.item is string
+        && data.item.size() >= 1
+        && data.item.size() <= 160
+        && data.unit is string
+        && data.unit.size() >= 1
+        && data.unit.size() <= 40
+        && isValidDayQty(data.mon)
+        && isValidDayQty(data.tue)
+        && isValidDayQty(data.wed)
+        && isValidDayQty(data.thu)
+        && isValidDayQty(data.fri)
+        && isValidDayQty(data.sat)
+        && isValidDayQty(data.sun)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isKitchenOwner(kitchenId) {
+      return isVerifiedUser()
+        && get(/databases/$(database)/documents/kitchens/$(kitchenId)).data.ownerId == request.auth.uid;
+    }
+
+    match /kitchens/{kitchenId} {
+      allow get: if isVerifiedUser()
+        && isValidId(kitchenId)
+        && kitchenId == request.auth.uid
+        && (resource == null || existing().ownerId == request.auth.uid);
+
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(kitchenId)
+        && kitchenId == request.auth.uid
+        && isValidKitchen(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(kitchenId)
+        && isValidKitchen(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['weekStart', 'updatedAt']);
+
+      allow delete: if isVerifiedUser()
+        && isValidId(kitchenId)
+        && existing().ownerId == request.auth.uid;
+
+      match /items/{itemId} {
+        allow get: if isVerifiedUser()
+          && isValidId(kitchenId)
+          && isValidId(itemId)
+          && isKitchenOwner(kitchenId)
+          && (resource == null || existing().ownerId == request.auth.uid);
+
+        allow list: if isVerifiedUser()
+          && kitchenId == request.auth.uid
+          && existing().ownerId == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(kitchenId)
+          && isValidId(itemId)
+          && kitchenId == request.auth.uid
+          && isValidStockItem(incoming())
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && isKitchenOwner(kitchenId);
+
+        allow update: if isVerifiedUser()
+          && isValidId(kitchenId)
+          && isValidId(itemId)
+          && isValidStockItem(incoming())
+          && existing().ownerId == request.auth.uid
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && isKitchenOwner(kitchenId)
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun', 'updatedAt'
+            ])
+            || incoming().diff(existing()).affectedKeys().hasOnly([
+              'category', 'item', 'unit', 'sortOrder', 'updatedAt'
+            ])
+          );
+
+        allow delete: if isVerifiedUser()
+          && isValidId(kitchenId)
+          && isValidId(itemId)
+          && existing().ownerId == request.auth.uid
+          && isKitchenOwner(kitchenId);
+      }
+    }
+  }
+}

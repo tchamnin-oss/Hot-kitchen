@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+
+<html lang="th"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PAR STOCK MANAGEMENT - HOT KITCHEN</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<!-- html2canvas CDN for snapshot export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Google Fonts: Inter & Sarabun -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Sarabun:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<style>
+    body { font-family: 'Inter', 'Sarabun', sans-serif; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; padding: 0 !important; }
+      .print-shadow-none { box-shadow: none !important; border: 1px solid #e2e8f0; }
+      #summaryReportCard {
+        position: static !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+      }
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+    }
+    /* Custom scrollbar for preview */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-6 pb-20">
+<div class="max-w-7xl mx-auto space-y-5">
+<!-- Top Header -->
+<header class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+<div>
+<div class="flex flex-wrap items-center gap-2">
+<span class="px-2.5 py-0.5 text-xs font-bold bg-amber-500 text-white rounded">KITCHEN OPS</span>
+<!-- Editable Week Date Range Picker -->
+<div class="inline-flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5 shadow-sm text-xs">
+<button class="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded transition no-print" onclick="changeWeek(-1)" title="สัปดาห์ก่อนหน้า">
+<svg class="lucide lucide-chevron-left" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m15 18-6-6 6-6"></path></svg>
+</button>
+<div class="flex items-center gap-1.5 px-2 py-0.5 font-medium text-slate-700">
+<svg class="lucide lucide-calendar text-amber-600" fill="none" height="13" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="13" xmlns="http://www.w3.org/2000/svg"><rect height="18" rx="2" ry="2" width="18" x="3" y="4"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+<span class="font-semibold text-slate-800" id="weekDisplayRange">16/11/2026 - 22/11/2026</span>
+<input class="no-print ml-1 text-xs border border-slate-300 rounded px-1.5 py-0.5 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer" id="weekStartDateInput" onchange="onStartDateChange(this.value)" title="เลือกวันเริ่มสัปดาห์ (วันจันทร์)" type="date"/>
+</div>
+<button class="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded transition no-print" onclick="changeWeek(1)" title="สัปดาห์ถัดไป">
+<svg class="lucide lucide-chevron-right" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" viewbox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><path d="m9 18 6-6-6-6"></path></svg>
+</button>
+</div>
+</div>
+<h1 class="text-2xl font-bold text-slate-900 mt-1.5">PAR STOCK (HOT KITCHEN)</h1>
+<p class="text-sm text-slate-500">ระบบบันทึก จัดการ และนับสต๊อกวัตถุดิบครัวร้อนประจำสัปดาห์ (เพิ่ม/ลบวัตถุดิบได้ พร้อมเลือกรอบวันที่)</p>
+</div>
+<div class="flex flex-wrap items-center gap-2 no-print">
+<button class="px-3.5 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center gap-1.5 transition shadow-sm" onclick="openAddItemModal()">
+<svg aria-hidden="true" class="lucide lucide-plus-circle w-4 h-4" data-lucide="plus-circle" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path><path d="M12 8v8"></path></svg> เพิ่มวัตถุดิบใหม่
+</button>
+<!-- Summary & Save Image Button -->
+<button class="px-3.5 py-2 text-sm font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-lg flex items-center gap-1.5 transition shadow-sm hover:shadow" onclick="openSummaryModal()">
+<svg aria-hidden="true" class="lucide lucide-bar-chart-3 w-4 h-4" data-lucide="bar-chart-3" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>
+<span>📊 สรุปยอด &amp; เซฟรูปภาพ</span>
+</button>
+<button class="px-3 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1.5 transition" onclick="window.print()">
+<svg aria-hidden="true" class="lucide lucide-printer w-4 h-4" data-lucide="printer" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"></path><rect height="8" rx="1" width="12" x="6" y="14"></rect></svg> พิมพ์
+</button>
+<button class="px-3 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 transition shadow-sm" onclick="exportToCSV()">
+<svg aria-hidden="true" class="lucide lucide-download w-4 h-4" data-lucide="download" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg> ส่งออก CSV
+</button>
+<button class="px-3 py-2 text-sm font-medium bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition flex items-center gap-1.5" onclick="resetData()">
+<svg aria-hidden="true" class="lucide lucide-rotate-ccw w-4 h-4" data-lucide="rotate-ccw" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> รีเซ็ต
+</button>
+</div>
+</header>
+<!-- Filter & Search Controls -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
+<div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0" id="categoryTabs">
+<!-- Render category buttons via JS -->
+</div>
+<div class="relative min-w-[240px]">
+<svg class="lucide lucide-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+<input class="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-700" id="searchInput" oninput="renderTable()" placeholder="ค้นหาวัตถุดิบ หรือหน่วยนับ..." type="text"/>
+</div>
+</div>
+<!-- Main Table Card -->
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print-shadow-none">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse text-sm">
+<thead>
+<tr class="bg-slate-800 text-slate-200 text-xs uppercase tracking-wider">
+<th class="py-3 px-3 font-semibold w-10 text-center">#</th>
+<th class="py-3 px-4 font-semibold min-w-[200px]">Item Description</th>
+<th class="py-3 px-2 font-semibold text-center w-20">Unit</th>
+<th class="py-3 px-1 font-semibold text-center w-16 bg-slate-700/60">Mon<br/><span class="text-[10px] text-slate-400 font-normal" id="header-date-mon">16 Nov</span></th>
+<th class="py-3 px-1 font-semibold text-center w-16">Tue<br/><span class="text-[10px] text-slate-400 font-normal" id="header-date-tue">17 Nov</span></th>
+<th class="py-3 px-1 font-semibold text-center w-16">Wed<br/><span class="text-[10px] text-slate-400 font-normal" id="header-date-wed">18 Nov</span></th>
+<th class="py-3 px-1 font-semibold text-center w-16">Thu<br/><span class="text-[10px] text-slate-400 font-normal" id="header-date-thu">19 Nov</span></th>
+<th class="py-3 px-1 font-semibold text-center w-16">Fri<br/><span class="text-[10px] text-slate-400 font-normal" id="header-date-fri">20 Nov</span></th>
+<th class="py-3 px-1 font-semibold text-center w-16 bg-amber-900/40 text-amber-200">Sat<br/><span class="text-[10px] text-amber-300 font-normal" id="header-date-sat">21 Nov</span></th>
+<th class="py-3 px-1 font-semibold text-center w-16 bg-amber-900/40 text-amber-200">Sun<br/><span class="text-[10px] text-amber-300 font-normal" id="header-date-sun">22 Nov</span></th>
+<th class="py-3 px-2 font-semibold text-center w-20 bg-slate-900 text-amber-400">Total</th>
+<th class="py-3 px-3 font-semibold text-center w-20 no-print">จัดการ</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100" id="stockTableBody">
+<!-- Render via JavaScript -->
+</tbody>
+</table>
+</div>
+</div>
+<!-- Instructions / Footer info -->
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-900 flex flex-col md:flex-row md:items-center justify-between gap-2 no-print">
+<div class="flex items-center gap-2">
+<svg aria-hidden="true" class="lucide lucide-info w-4 h-4 text-amber-600 flex-shrink-0" data-lucide="info" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+<span><strong>คำแนะนำ:</strong> สามารถเปลี่ยนรอบสัปดาห์ได้ที่กล่องวันที่ด้านบน หัวตารางและส่งออก CSV จะปรับตามจริง | คลิก <strong>"เพิ่มวัตถุดิบใหม่"</strong> เพื่อใส่รายการเพิ่มเติม หรือกดปุ่ม <strong>"📊 สรุปยอด &amp; เซฟรูปภาพ"</strong> เพื่อทำรายงานบันทึกเป็นรูปภาพ</span>
+</div>
+<div class="text-slate-500 font-medium">บันทึกอัตโนมัติผ่าน LocalStorage</div>
+</div>
+<!-- Notification Toast -->
+<div class="fixed bottom-5 right-5 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-lg shadow-xl opacity-0 pointer-events-none transition-all duration-300 z-50 flex items-center gap-2" id="toast">
+<svg aria-hidden="true" class="lucide lucide-check w-4 h-4 text-emerald-400" data-lucide="check" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 9 17l-5-5"></path></svg>
+<span id="toastMessage">บันทึกข้อมูลเรียบร้อยแล้ว</span>
+</div>
+</div>
+<!-- Modal: Summary Report & Save Image -->
+<div class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm items-center justify-center z-50 p-3 sm:p-5 no-print hidden overflow-y-auto" id="summaryModal">
+<div class="bg-slate-100 rounded-2xl shadow-2xl border border-slate-300 max-w-4xl w-full my-auto flex flex-col max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-200">
+<!-- Modal Top Toolbar -->
+<div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-amber-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-sm">
+        📊
+      </div>
+<div>
+<h3 class="font-bold text-sm sm:text-base leading-tight">สรุปยอดสต๊อกประจำสัปดาห์ (Par Stock Report)</h3>
+<p class="text-[11px] text-slate-400">พรีวิวใบรายงานสรุป พร้อมดาวน์โหลดเป็นรูปภาพ PNG คุณภาพสูง</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 transition shadow-sm" id="btnDownloadImage" onclick="saveSummaryAsImage()">
+<svg aria-hidden="true" class="lucide lucide-camera w-3.5 h-3.5" data-lucide="camera" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+<span>📸 เซฟเป็นรูปภาพ (PNG)</span>
+</button>
+<button class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1.5 transition border border-slate-700" onclick="printSummaryCard()">
+<svg aria-hidden="true" class="lucide lucide-printer w-3.5 h-3.5" data-lucide="printer" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"></path><rect height="8" rx="1" width="12" x="6" y="14"></rect></svg>
+<span>พิมพ์</span>
+</button>
+<button class="text-slate-400 hover:text-white p-1 rounded transition ml-1" onclick="closeSummaryModal()">
+<svg aria-hidden="true" class="lucide lucide-x w-5 h-5" data-lucide="x" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+</button>
+</div>
+</div>
+<!-- Scrollable Preview Area -->
+<div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-200/60">
+<!-- The Actual Printable / Snapshot Report Element -->
+<div class="bg-white rounded-xl shadow-lg border border-slate-300 p-6 md:p-8 max-w-3xl mx-auto space-y-6 text-slate-800 font-sans" id="summaryReportCard">
+<!-- Report Header -->
+<div class="border-b-2 border-slate-800 pb-5">
+<div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="px-2 py-0.5 text-[10px] font-black tracking-wider bg-amber-500 text-white rounded">KITCHEN OPS</span>
+<span class="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded border border-slate-300">WEEKLY INVENTORY AUDIT</span>
+</div>
+<h2 class="text-2xl font-black text-slate-900 tracking-tight">PAR STOCK SUMMARY REPORT</h2>
+<p class="text-xs text-slate-500 font-medium">HOT KITCHEN SECTION • สรุปรายงานบันทึกสต๊อกและการใช้วัตถุดิบ</p>
+</div>
+<div class="sm:text-right bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+<div class="text-[10px] uppercase font-bold text-slate-400">รอบสัปดาห์ (Period)</div>
+<div class="text-sm font-bold text-slate-900" id="reportWeekRange">16/11/2026 - 22/11/2026</div>
+<div class="text-[11px] text-slate-500 mt-0.5" id="reportGeneratedTime">พิมพ์เมื่อ: 16/11/2026</div>
+</div>
+</div>
+</div>
+<!-- KPI Metrics Cards -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+<div class="bg-amber-50/80 border border-amber-200 rounded-xl p-3">
+<div class="text-[10px] font-bold text-amber-800 uppercase">วัตถุดิบทั้งหมด</div>
+<div class="text-2xl font-black text-amber-900 mt-0.5" id="kpiTotalItems">0</div>
+<div class="text-[10px] text-amber-700">รายการในระบบ</div>
+</div>
+<div class="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3">
+<div class="text-[10px] font-bold text-emerald-800 uppercase">รายการที่มีการบันทึก</div>
+<div class="text-2xl font-black text-emerald-900 mt-0.5" id="kpiActiveItems">0</div>
+<div class="text-[10px] text-emerald-700" id="kpiActivePercent">0% ของทั้งหมด</div>
+</div>
+<div class="bg-indigo-50/80 border border-indigo-200 rounded-xl p-3">
+<div class="text-[10px] font-bold text-indigo-800 uppercase">ยอดรวมจำนวนที่นับได้</div>
+<div class="text-2xl font-black text-indigo-900 mt-0.5" id="kpiTotalQuantity">0</div>
+<div class="text-[10px] text-indigo-700">ผลรวมทุกหน่วยนับ</div>
+</div>
+<div class="bg-slate-100 border border-slate-200 rounded-xl p-3">
+<div class="text-[10px] font-bold text-slate-700 uppercase">จำนวนหมวดหมู่</div>
+<div class="text-2xl font-black text-slate-800 mt-0.5" id="kpiTotalCategories">0</div>
+<div class="text-[10px] text-slate-600">กลุ่มวัตถุดิบ</div>
+</div>
+</div>
+<!-- Category Breakdown Tables -->
+<div class="space-y-4" id="reportCategoryBreakdown">
+<!-- Rendered dynamically -->
+</div>
+<!-- Footer & Signature Block -->
+<div class="pt-6 border-t-2 border-slate-200">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
+<div class="text-xs text-slate-500 space-y-1">
+<p><strong>หมายเหตุ:</strong> ข้อมูลนี้ใช้สำหรับการตรวจนับ ตรวจสอบรอบสัปดาห์ และสั่งซื้อวัตถุดิบเติม Par Stock ประจำส่วนครัวร้อน</p>
+<p class="text-[10px] text-slate-400">PAR STOCK MANAGEMENT SYSTEM • KITCHEN OPS</p>
+</div>
+<div class="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2 text-xs">
+<div class="flex justify-between items-center text-slate-700">
+<span class="font-semibold">ผู้บันทึก / Checked by:</span>
+<span class="border-b border-dotted border-slate-400 w-36 inline-block"></span>
+</div>
+<div class="flex justify-between items-center text-slate-700">
+<span class="font-semibold">หัวหน้าครัว / Chef in Charge:</span>
+<span class="border-b border-dotted border-slate-400 w-36 inline-block"></span>
+</div>
+<div class="flex justify-between items-center text-slate-700">
+<span class="font-semibold">วันที่ / Date:</span>
+<span class="border-b border-dotted border-slate-400 w-36 inline-block"></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer Action -->
+<div class="bg-white px-5 py-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+<div class="text-xs text-slate-500 flex items-center gap-1.5">
+<svg class="lucide lucide-shield-check text-emerald-600" fill="none" height="14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+<span>ภาพ PNG คมชัด ความละเอียด 2X พร้อมส่งใน LINE กลุ่มครัวได้ทันที</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition" onclick="closeSummaryModal()">
+        ปิดหน้าต่าง
+      </button>
+<button class="px-4 py-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-lg flex items-center gap-1.5 transition shadow-sm" onclick="saveSummaryAsImage()">
+<svg aria-hidden="true" class="lucide lucide-download w-3.5 h-3.5" data-lucide="download" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+<span>ดาวน์โหลดรูปภาพ</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal: Add Item -->
+<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm items-center justify-center z-50 p-4 no-print hidden" id="addItemModal">
+<div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+<div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<svg aria-hidden="true" class="lucide lucide-plus-circle w-5 h-5 text-amber-400" data-lucide="plus-circle" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path><path d="M12 8v8"></path></svg>
+<h3 class="font-bold text-base">เพิ่มรายการวัตถุดิบใหม่</h3>
+</div>
+<button class="text-slate-400 hover:text-white transition" onclick="closeAddItemModal()">
+<svg aria-hidden="true" class="lucide lucide-x w-5 h-5" data-lucide="x" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+</button>
+</div>
+<form class="p-6 space-y-4" id="addItemForm" onsubmit="handleAddItem(event)">
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">หมวดหมู่วัตถุดิบ <span class="text-rose-500">*</span></label>
+<div class="space-y-2">
+<select class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none" id="modalCategorySelect" onchange="toggleCustomCategory(this.value)">
+<option value="BREAKFAST / GENERAL">BREAKFAST / GENERAL</option>
+<option value="MEAT">MEAT</option>
+<option value="DRY STORE">DRY STORE</option>
+<option value="CUSTOM">+ เพิ่มหมวดหมู่ใหม่...</option>
+</select>
+<input class="hidden w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none" id="modalCustomCategory" placeholder="ระบุชื่อหมวดหมู่ใหม่..." type="text"/>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อวัตถุดิบ (Item Description) <span class="text-rose-500">*</span></label>
+<input class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none" id="modalItemName" placeholder="เช่น Wagyu Beef A5, Truffle Paste" required="" type="text"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">หน่วยนับ (Unit) <span class="text-rose-500">*</span></label>
+<div class="flex gap-2">
+<select class="w-1/2 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none" id="modalUnitSelect" onchange="handleUnitSelect(this.value)">
+<option value="KG">KG (กิโลกรัม)</option>
+<option value="PACK">PACK (แพ็ค)</option>
+<option value="PORTION">PORTION (ส่วน)</option>
+<option value="CAN">CAN (กระป๋อง)</option>
+<option value="GALLON">GALLON (แกลลอน)</option>
+<option value="PCS">PCS (ชิ้น)</option>
+<option value="BOX">BOX (กล่อง)</option>
+<option value="CASE">CASE (ลัง)</option>
+<option value="BOTTLE">BOTTLE (ขวด)</option>
+<option value="OTHER">อื่นๆ (กำหนดเอง)</option>
+</select>
+<input class="hidden w-1/2 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none uppercase" id="modalCustomUnit" placeholder="ระบุหน่วย..." type="text"/>
+</div>
+</div>
+<div class="border-t border-slate-100 pt-3">
+<label class="block text-xs font-semibold text-slate-700 mb-2">จำนวนตั้งต้นสำหรับวันจันทร์ (ไม่บังคับ)</label>
+<input class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none" id="modalInitialQty" min="0" placeholder="0" step="any" type="number"/>
+</div>
+<div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+<button class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition" onclick="closeAddItemModal()" type="button">
+            ยกเลิก
+          </button>
+<button class="px-4 py-2 text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition shadow-sm flex items-center gap-1.5" type="submit">
+<svg aria-hidden="true" class="lucide lucide-check w-4 h-4" data-lucide="check" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M20 6 9 17l-5-5"></path></svg> เพิ่มวัตถุดิบ
+          </button>
+</div>
+</form>
+</div>
+</div>
+<script>
+    // Initial Dataset based on provided CSV
+    const defaultData = [
+      // Breakfast & General
+      { id: 1, category: "BREAKFAST / GENERAL", item: "Bacon", unit: "KG", mon: 1, tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 2, category: "BREAKFAST / GENERAL", item: "Chicken Sausage", unit: "PACK", mon: 1, tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 3, category: "BREAKFAST / GENERAL", item: "Pork Sausage Chipolata", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 4, category: "BREAKFAST / GENERAL", item: "Pork Sausage Mini", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 5, category: "BREAKFAST / GENERAL", item: "Pork Sausage Cumberland", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 6, category: "BREAKFAST / GENERAL", item: "Veal Sausage", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 7, category: "BREAKFAST / GENERAL", item: "English Muffin (30PCS/PACK)", unit: "PCS", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 8, category: "BREAKFAST / GENERAL", item: "Frozen Spinach (PACK)", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 9, category: "BREAKFAST / GENERAL", item: "Hash Brown (KG)", unit: "KG", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 10, category: "BREAKFAST / GENERAL", item: "French Fries (PACK)", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 11, category: "BREAKFAST / GENERAL", item: "Pancake (PACK)", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 12, category: "BREAKFAST / GENERAL", item: "Baked Bean (CAN)", unit: "CAN", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 13, category: "BREAKFAST / GENERAL", item: "Honey Comb", unit: "PCS", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 14, category: "BREAKFAST / GENERAL", item: "Hummus", unit: "BOX", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 15, category: "BREAKFAST / GENERAL", item: "Tzatziki", unit: "BOX", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 16, category: "BREAKFAST / GENERAL", item: "Labneh", unit: "BOX", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 17, category: "BREAKFAST / GENERAL", item: "Egg (CASE)", unit: "CASE", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 18, category: "BREAKFAST / GENERAL", item: "Cream", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+
+      // MEAT
+      { id: 19, category: "MEAT", item: "Ribeye A La Carte", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 20, category: "MEAT", item: "Salmon A La Carte", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 21, category: "MEAT", item: "Seabass A La Carte", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 22, category: "MEAT", item: "Lemon Chicken", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 23, category: "MEAT", item: "Pork Chop", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 24, category: "MEAT", item: "Calamari", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 25, category: "MEAT", item: "Berger Bun", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 26, category: "MEAT", item: "Beef Patty", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 27, category: "MEAT", item: "Plant Base Berger", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 28, category: "MEAT", item: "Nugget", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 29, category: "MEAT", item: "Mushroom Soup", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 30, category: "MEAT", item: "Potato Soup", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 31, category: "MEAT", item: "Red Wine Sauce", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 32, category: "MEAT", item: "Pepper Corn Sauce", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 33, category: "MEAT", item: "White Wine Sauce", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 34, category: "MEAT", item: "Shakshuka", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 35, category: "MEAT", item: "Falafel", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 36, category: "MEAT", item: "Chicken Shawama", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 37, category: "MEAT", item: "Beef Kofta", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 38, category: "MEAT", item: "Kimchi Arancini", unit: "PORTION", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+
+      // DRY STORE
+      { id: 39, category: "DRY STORE", item: "Tomato Peel", unit: "CAN", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 40, category: "DRY STORE", item: "Spaghetti", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 41, category: "DRY STORE", item: "Black Ink Spaghetti", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 42, category: "DRY STORE", item: "Penne", unit: "PACK", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 43, category: "DRY STORE", item: "Pomace Olive Oil", unit: "GALLON", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+      { id: 44, category: "DRY STORE", item: "Palm Oil", unit: "GALLON", mon: "", tue: "", wed: "", thu: "", fri: "", sat: "", sun: "" },
+    ];
+
+    let currentCategory = 'ALL';
+    let stockData = JSON.parse(localStorage.getItem('hot_kitchen_par_stock_v2')) || defaultData;
+
+    // Week Date Range Management
+    const defaultMonday = "2026-11-16";
+    let weekStart = localStorage.getItem('hot_kitchen_par_week_start') || defaultMonday;
+
+    function getMonday(dateInput) {
+      const d = new Date(dateInput);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+      const monday = new Date(d.setDate(diff));
+      return formatDateToYMD(monday);
+    }
+
+    function formatDateToYMD(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function addDays(dateStr, days) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      date.setDate(date.getDate() + days);
+      return formatDateToYMD(date);
+    }
+
+    function formatDisplayDate(dateStr) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+    }
+
+    function formatShortDate(dateStr) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return `${d} ${months[m - 1]}`;
+    }
+
+    function getWeekDates() {
+      return {
+        mon: weekStart,
+        tue: addDays(weekStart, 1),
+        wed: addDays(weekStart, 2),
+        thu: addDays(weekStart, 3),
+        fri: addDays(weekStart, 4),
+        sat: addDays(weekStart, 5),
+        sun: addDays(weekStart, 6)
+      };
+    }
+
+    function updateWeekDisplay() {
+      const dates = getWeekDates();
+      const rangeText = `${formatDisplayDate(dates.mon)} - ${formatDisplayDate(dates.sun)}`;
+      const rangeDisplay = document.getElementById('weekDisplayRange');
+      if (rangeDisplay) rangeDisplay.textContent = rangeText;
+
+      const dateInput = document.getElementById('weekStartDateInput');
+      if (dateInput) dateInput.value = weekStart;
+
+      // Update table column headers
+      const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+      days.forEach(day => {
+        const span = document.getElementById(`header-date-${day}`);
+        if (span) {
+          span.textContent = formatShortDate(dates[day]);
+        }
+      });
+    }
+
+    function onStartDateChange(val) {
+      if (!val) return;
+      weekStart = getMonday(val);
+      localStorage.setItem('hot_kitchen_par_week_start', weekStart);
+      updateWeekDisplay();
+      showToast(`เปลี่ยนรอบสัปดาห์เป็น ${formatDisplayDate(weekStart)} แล้ว`);
+    }
+
+    function changeWeek(direction) {
+      weekStart = addDays(weekStart, direction * 7);
+      localStorage.setItem('hot_kitchen_par_week_start', weekStart);
+      updateWeekDisplay();
+      showToast(`เปลี่ยนเป็นรอบ ${formatDisplayDate(weekStart)}`);
+    }
+
+    function saveState(msg = 'บันทึกข้อมูลเรียบร้อยแล้ว') {
+      localStorage.setItem('hot_kitchen_par_stock_v2', JSON.stringify(stockData));
+      updateStats();
+      showToast(msg);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMessage');
+      if (toastMsg && msg) toastMsg.textContent = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 1600);
+    }
+
+    function calculateTotal(row) {
+      const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+      return days.reduce((sum, d) => sum + (parseFloat(row[d]) || 0), 0);
+    }
+
+    function updateStock(id, day, value) {
+      const item = stockData.find(d => d.id === id);
+      if (item) {
+        item[day] = value === '' ? '' : Number(value);
+        saveState();
+        const totalCell = document.getElementById(`total-${id}`);
+        if (totalCell) {
+          const total = calculateTotal(item);
+          totalCell.textContent = total > 0 ? total : '-';
+        }
+      }
+    }
+
+    function getUniqueCategories() {
+      const cats = new Set(stockData.map(d => d.category));
+      return Array.from(cats);
+    }
+
+    function renderCategoryTabs() {
+      const container = document.getElementById('categoryTabs');
+      if (!container) return;
+      const cats = getUniqueCategories();
+      
+      let html = `<button onclick="filterCategory('ALL')" class="cat-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${currentCategory === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition" data-cat="ALL">ทั้งหมด (${stockData.length})</button>`;
+      
+      cats.forEach(c => {
+        const count = stockData.filter(i => i.category === c).length;
+        const isActive = currentCategory === c;
+        html += `<button onclick="filterCategory('${c}')" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap ${isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'} transition" data-cat="${c}">${c} (${count})</button>`;
+      });
+
+      container.innerHTML = html;
+
+      // Update Modal Categories dropdown
+      const modalSelect = document.getElementById('modalCategorySelect');
+      if (modalSelect) {
+        let optHtml = '';
+        cats.forEach(c => {
+          optHtml += `<option value="${c}">${c}</option>`;
+        });
+        optHtml += `<option value="CUSTOM">+ เพิ่มหมวดหมู่ใหม่...</option>`;
+        modalSelect.innerHTML = optHtml;
+      }
+    }
+
+    function filterCategory(cat) {
+      currentCategory = cat;
+      renderCategoryTabs();
+      renderTable();
+    }
+
+    function updateStats() {
+      const totalItems = stockData.length;
+      const badge = document.getElementById('itemCountBadge');
+      if (badge) badge.textContent = `${totalItems} รายการ`;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('stockTableBody');
+      const searchInput = document.getElementById('searchInput');
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      tbody.innerHTML = '';
+
+      let lastCategory = '';
+
+      const filtered = stockData.filter(item => {
+        const matchCategory = (currentCategory === 'ALL' || item.category === currentCategory);
+        const matchSearch = item.item.toLowerCase().includes(search) || item.unit.toLowerCase().includes(search);
+        return matchCategory && matchSearch;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" class="text-center py-10 text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package-search mx-auto mb-2 opacity-50"><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"></path><path d="m7.5 4.27 9 5.15"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" x2="12" y1="22" y2="12"></line><circle cx="18.5" cy="15.5" r="2.5"></circle><path d="M20.27 17.27 22 19"></path></svg>
+          <div>ไม่พบรายการวัตถุดิบที่ค้นหา</div>
+        </td></tr>`;
+        lucide.createIcons();
+        return;
+      }
+
+      filtered.forEach((row, index) => {
+        // Show category section header
+        if (currentCategory === 'ALL' && row.category !== lastCategory) {
+          lastCategory = row.category;
+          const catHeader = document.createElement('tr');
+          catHeader.className = "bg-slate-100 font-bold text-slate-700 tracking-wider text-xs uppercase";
+          catHeader.innerHTML = `<td colspan="12" class="py-2 px-4 bg-slate-200/70 border-y border-slate-300 font-bold text-slate-800 flex-1">
+            <span class="inline-flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder text-amber-600"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg> หมวดหมู่: ${row.category}</span>
+          </td>`;
+          tbody.appendChild(catHeader);
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100 group";
+
+        const total = calculateTotal(row);
+
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 text-center text-xs text-slate-400 font-medium">${index + 1}</td>
+          <td class="py-2.5 px-4 font-semibold text-slate-800">
+            <div class="flex items-center gap-2">
+              <span>${row.item}</span>
+              ${currentCategory !== 'ALL' ? '' : `<span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-normal hidden lg:inline">${row.category}</span>`}
+            </div>
+          </td>
+          <td class="py-2.5 px-2 text-center">
+            <span class="px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded border border-slate-200">${row.unit}</span>
+          </td>
+          
+          ${['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(day => `
+            <td class="py-1 px-1 text-center">
+              <input type="number" min="0" step="any"
+                value="${row[day] !== undefined ? row[day] : ''}"
+                onchange="updateStock(${row.id}, '${day}', this.value)"
+                class="w-12 text-center py-1 text-sm rounded border border-slate-200 focus:bg-amber-50 focus:border-amber-500 focus:outline-none transition font-medium text-slate-700 hover:border-slate-300">
+            </td>
+          `).join('')}
+
+          <td id="total-${row.id}" class="py-2.5 px-2 text-center font-bold text-slate-900 bg-slate-50 text-sm">
+            ${total > 0 ? total : '-'}
+          </td>
+          <td class="py-2.5 px-2 text-center no-print">
+            <button onclick="deleteItem(${row.id}, '${row.item.replace(/'/g, "\\'")}')" 
+                    title="ลบวัตถุดิบนี้" 
+                    class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition opacity-60 group-hover:opacity-100">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" x2="10" y1="11" y2="17"></line><line x1="14" x2="14" y1="11" y2="17"></line></svg>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      lucide.createIcons();
+    }
+
+    // Modal Operations
+    function openAddItemModal() {
+      document.getElementById('addItemModal').classList.remove('hidden');
+      document.getElementById('addItemModal').classList.add('flex');
+      document.getElementById('modalItemName').focus();
+      lucide.createIcons();
+    }
+
+    function closeAddItemModal() {
+      document.getElementById('addItemModal').classList.add('hidden');
+      document.getElementById('addItemModal').classList.remove('flex');
+      document.getElementById('addItemForm').reset();
+      document.getElementById('modalCustomCategory').classList.add('hidden');
+      document.getElementById('modalCustomUnit').classList.add('hidden');
+    }
+
+    function toggleCustomCategory(val) {
+      const customInput = document.getElementById('modalCustomCategory');
+      if (val === 'CUSTOM') {
+        customInput.classList.remove('hidden');
+        customInput.required = true;
+        customInput.focus();
+      } else {
+        customInput.classList.add('hidden');
+        customInput.required = false;
+      }
+    }
+
+    function handleUnitSelect(val) {
+      const customUnit = document.getElementById('modalCustomUnit');
+      if (val === 'OTHER') {
+        customUnit.classList.remove('hidden');
+        customUnit.required = true;
+        customUnit.focus();
+      } else {
+        customUnit.classList.add('hidden');
+        customUnit.required = false;
+      }
+    }
+
+    function handleAddItem(event) {
+      event.preventDefault();
+      
+      const catSelect = document.getElementById('modalCategorySelect').value;
+      const customCat = document.getElementById('modalCustomCategory').value.trim();
+      const category = (catSelect === 'CUSTOM' ? customCat.toUpperCase() : catSelect) || 'GENERAL';
+
+      const itemName = document.getElementById('modalItemName').value.trim();
+      
+      const unitSelect = document.getElementById('modalUnitSelect').value;
+      const customUnit = document.getElementById('modalCustomUnit').value.trim();
+      const unit = (unitSelect === 'OTHER' ? customUnit.toUpperCase() : unitSelect) || 'PCS';
+
+      const initialQty = document.getElementById('modalInitialQty').value;
+
+      if (!itemName) {
+        alert('กรุณากรอกชื่อวัตถุดิบ');
+        return;
+      }
+
+      const nextId = stockData.length > 0 ? Math.max(...stockData.map(d => d.id)) + 1 : 1;
+      const newItem = {
+        id: nextId,
+        category: category,
+        item: itemName,
+        unit: unit,
+        mon: initialQty !== '' ? Number(initialQty) : '',
+        tue: '', wed: '', thu: '', fri: '', sat: '', sun: ''
+      };
+
+      stockData.push(newItem);
+      saveState(`เพิ่มวัตถุดิบ "${itemName}" เรียบร้อยแล้ว`);
+      closeAddItemModal();
+      renderCategoryTabs();
+      renderTable();
+    }
+
+    function deleteItem(id, name) {
+      if (confirm(`คุณต้องการลบ "${name}" ออกจากรายการสต๊อกใช่หรือไม่?`)) {
+        stockData = stockData.filter(d => d.id !== id);
+        saveState(`ลบวัตถุดิบ "${name}" เรียบร้อยแล้ว`);
+        renderCategoryTabs();
+        renderTable();
+      }
+    }
+
+    function exportToCSV() {
+      const dates = getWeekDates();
+      let csv = `\uFEFFPAR STOCK (HOT KITCHEN) [${formatDisplayDate(dates.mon)} - ${formatDisplayDate(dates.sun)}]\n`;
+      csv += `ITEM,CATEGORY,UNIT,${dates.mon} (Mon),${dates.tue} (Tue),${dates.wed} (Wed),${dates.thu} (Thu),${dates.fri} (Fri),${dates.sat} (Sat),${dates.sun} (Sun),TOTAL\n`;
+
+      let lastCat = '';
+      stockData.forEach(row => {
+        if (row.category !== lastCat) {
+          lastCat = row.category;
+          csv += `[${lastCat}],,,,,,,,,,,\n`;
+        }
+        const total = calculateTotal(row);
+        const line = [
+          `"${row.item.replace(/"/g, '""')}"`,
+          `"${row.category}"`,
+          `"${row.unit}"`,
+          row.mon !== undefined ? row.mon : '',
+          row.tue !== undefined ? row.tue : '',
+          row.wed !== undefined ? row.wed : '',
+          row.thu !== undefined ? row.thu : '',
+          row.fri !== undefined ? row.fri : '',
+          row.sat !== undefined ? row.sat : '',
+          row.sun !== undefined ? row.sun : '',
+          total
+        ].join(',');
+        csv += line + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `Par_Stock_Hot_Kitchen_${dates.mon}_to_${dates.sun}.csv`;
+      link.click();
+    }
+
+    function resetData() {
+      if (confirm("คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตข้อมูลทั้งหมดกลับเป็นค่าเริ่มต้น (44 รายการ)? การเพิ่ม/ลบรายการจะถูกรีเซ็ต")) {
+        stockData = JSON.parse(JSON.stringify(defaultData));
+        weekStart = defaultMonday;
+        localStorage.setItem('hot_kitchen_par_week_start', weekStart);
+        saveState('รีเซ็ตข้อมูลทั้งหมดเรียบร้อยแล้ว');
+        updateWeekDisplay();
+        renderCategoryTabs();
+        renderTable();
+      }
+    }
+
+    // ==========================================
+    // SUMMARY REPORT & SAVE AS IMAGE FEATURES
+    // ==========================================
+    function openSummaryModal() {
+      const dates = getWeekDates();
+      const modal = document.getElementById('summaryModal');
+      
+      // Update Headers
+      const reportWeekRange = document.getElementById('reportWeekRange');
+      if (reportWeekRange) {
+        reportWeekRange.textContent = `${formatDisplayDate(dates.mon)} - ${formatDisplayDate(dates.sun)}`;
+      }
+
+      const reportGeneratedTime = document.getElementById('reportGeneratedTime');
+      if (reportGeneratedTime) {
+        const now = new Date();
+        reportGeneratedTime.textContent = `พิมพ์เมื่อ: ${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+
+      // Compute KPIs
+      const totalItems = stockData.length;
+      let recordedCount = 0;
+      let grandTotalQty = 0;
+
+      stockData.forEach(item => {
+        const itemTotal = calculateTotal(item);
+        if (itemTotal > 0) {
+          recordedCount++;
+          grandTotalQty += itemTotal;
+        }
+      });
+
+      const uniqueCats = getUniqueCategories();
+      const activePercent = totalItems > 0 ? Math.round((recordedCount / totalItems) * 100) : 0;
+
+      document.getElementById('kpiTotalItems').textContent = totalItems;
+      document.getElementById('kpiActiveItems').textContent = recordedCount;
+      document.getElementById('kpiActivePercent').textContent = `${activePercent}% ที่มีการบันทึกยอด`;
+      document.getElementById('kpiTotalQuantity').textContent = grandTotalQty.toLocaleString();
+      document.getElementById('kpiTotalCategories').textContent = uniqueCats.length;
+
+      // Render Category Breakdown Tables
+      const container = document.getElementById('reportCategoryBreakdown');
+      container.innerHTML = '';
+
+      uniqueCats.forEach(cat => {
+        const catItems = stockData.filter(i => i.category === cat);
+        const catTotalQty = catItems.reduce((acc, curr) => acc + calculateTotal(curr), 0);
+        const catActiveCount = catItems.filter(i => calculateTotal(i) > 0).length;
+
+        const catBlock = document.createElement('div');
+        catBlock.className = "border border-slate-200 rounded-lg overflow-hidden";
+        
+        let rowsHtml = '';
+        catItems.forEach((it, idx) => {
+          const tot = calculateTotal(it);
+          const hasCount = tot > 0;
+          rowsHtml += `
+            <tr class="${hasCount ? 'bg-amber-50/30' : 'bg-white'} border-b border-slate-100 text-xs">
+              <td class="py-1.5 px-3 text-center text-slate-400 font-mono text-[11px]">${idx + 1}</td>
+              <td class="py-1.5 px-3 font-semibold text-slate-800">${it.item}</td>
+              <td class="py-1.5 px-2 text-center text-[11px] text-slate-500 font-medium">${it.unit}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.mon ? 'font-bold text-amber-700' : ''}">${it.mon !== undefined && it.mon !== '' ? it.mon : '-'}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.tue ? 'font-bold text-amber-700' : ''}">${it.tue !== undefined && it.tue !== '' ? it.tue : '-'}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.wed ? 'font-bold text-amber-700' : ''}">${it.wed !== undefined && it.wed !== '' ? it.wed : '-'}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.thu ? 'font-bold text-amber-700' : ''}">${it.thu !== undefined && it.thu !== '' ? it.thu : '-'}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.fri ? 'font-bold text-amber-700' : ''}">${it.fri !== undefined && it.fri !== '' ? it.fri : '-'}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.sat ? 'font-bold text-amber-700' : ''}">${it.sat !== undefined && it.sat !== '' ? it.sat : '-'}</td>
+              <td class="py-1.5 px-1 text-center font-mono text-slate-600 ${it.sun ? 'font-bold text-amber-700' : ''}">${it.sun !== undefined && it.sun !== '' ? it.sun : '-'}</td>
+              <td class="py-1.5 px-3 text-center font-bold ${hasCount ? 'text-slate-900 bg-amber-100/60' : 'text-slate-400 bg-slate-50'}">${tot > 0 ? tot : '-'}</td>
+            </tr>
+          `;
+        });
+
+        catBlock.innerHTML = `
+          <div class="bg-slate-800 text-white px-3 py-2 flex items-center justify-between text-xs font-bold">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+              ${cat} (${catItems.length} รายการ)
+            </span>
+            <span class="text-amber-300 font-semibold text-[11px]">
+              บันทึกแล้ว ${catActiveCount}/${catItems.length} รายการ | รวม ${catTotalQty.toLocaleString()} หน่วย
+            </span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-600 text-[10px] uppercase font-bold border-b border-slate-200">
+                  <th class="py-1.5 px-3 text-center w-8">#</th>
+                  <th class="py-1.5 px-3">ชื่อวัตถุดิบ (Item)</th>
+                  <th class="py-1.5 px-2 text-center w-16">Unit</th>
+                  <th class="py-1.5 px-1 text-center w-10">จ.</th>
+                  <th class="py-1.5 px-1 text-center w-10">อ.</th>
+                  <th class="py-1.5 px-1 text-center w-10">พ.</th>
+                  <th class="py-1.5 px-1 text-center w-10">พฤ.</th>
+                  <th class="py-1.5 px-1 text-center w-10">ศ.</th>
+                  <th class="py-1.5 px-1 text-center w-10 bg-amber-100/50">ส.</th>
+                  <th class="py-1.5 px-1 text-center w-10 bg-amber-100/50">อา.</th>
+                  <th class="py-1.5 px-3 text-center w-16 bg-slate-200/80 font-black text-slate-800">รวม</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
+        container.appendChild(catBlock);
+      });
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeSummaryModal() {
+      const modal = document.getElementById('summaryModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveSummaryAsImage() {
+      const reportElement = document.getElementById('summaryReportCard');
+      const downloadBtn = document.getElementById('btnDownloadImage');
+      const originalText = downloadBtn ? downloadBtn.innerHTML : '';
+      
+      if (downloadBtn) {
+        downloadBtn.innerHTML = `
+          <svg class="animate-spin w-3.5 h-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          <span>กำลังสร้างภาพ...</span>
+        `;
+        downloadBtn.disabled = true;
+      }
+
+      showToast('กำลังประมวลผลรูปภาพ PNG ความละเอียดสูง...');
+
+      // Render using html2canvas with scale 2 for crystal clear image
+      html2canvas(reportElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      }).then(canvas => {
+        const link = document.createElement('a');
+        const dates = getWeekDates();
+        link.download = `Par_Stock_Summary_HotKitchen_${dates.mon}_to_${dates.sun}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+        showToast('📸 ดาวน์โหลดรูปภาพสรุปยอดสำเร็จแล้ว!');
+        if (downloadBtn) {
+          downloadBtn.innerHTML = originalText;
+          downloadBtn.disabled = false;
+        }
+      }).catch(err => {
+        console.error('Snapshot error:', err);
+        alert('เกิดข้อผิดพลาดในการบันทึกรูปภาพ กรุณาลองใหม่อีกครั้ง');
+        if (downloadBtn) {
+          downloadBtn.innerHTML = originalText;
+          downloadBtn.disabled = false;
+        }
+      });
+    }
+
+    function printSummaryCard() {
+      window.print();
+    }
+
+    // Initialize
+    updateWeekDisplay();
+    renderCategoryTabs();
+    updateStats();
+    renderTable();
+    lucide.createIcons();
+  </script>
+</body></html>

@@ -1,0 +1,140 @@
+{
+  "entities": {
+    "KitchenWorkspace": {
+      "title": "KitchenWorkspace",
+      "description": "Per-user Hot Kitchen Par Stock workspace configuration storing the active Monday week start date.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated user UID who owns this kitchen workspace."
+        },
+        "weekStart": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Selected week start date (Monday) in YYYY-MM-DD format."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the workspace was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the workspace was last updated."
+        }
+      },
+      "required": ["ownerId", "weekStart", "createdAt", "updatedAt"]
+    },
+    "ParStockItem": {
+      "title": "ParStockItem",
+      "description": "Single Hot Kitchen Par Stock ingredient row with category, unit, and daily Monday-Sunday counts.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Authenticated user UID who owns this stock item."
+        },
+        "sortOrder": {
+          "type": "number",
+          "description": "Numeric display order of the ingredient item."
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Ingredient category name (e.g., BREAKFAST / GENERAL, MEAT, DRY STORE)."
+        },
+        "item": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Ingredient description or name."
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Measurement unit (e.g., KG, PACK, PORTION)."
+        },
+        "mon": {
+          "type": "number",
+          "description": "Monday stock count or null if blank."
+        },
+        "tue": {
+          "type": "number",
+          "description": "Tuesday stock count or null if blank."
+        },
+        "wed": {
+          "type": "number",
+          "description": "Wednesday stock count or null if blank."
+        },
+        "thu": {
+          "type": "number",
+          "description": "Thursday stock count or null if blank."
+        },
+        "fri": {
+          "type": "number",
+          "description": "Friday stock count or null if blank."
+        },
+        "sat": {
+          "type": "number",
+          "description": "Saturday stock count or null if blank."
+        },
+        "sun": {
+          "type": "number",
+          "description": "Sunday stock count or null if blank."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the item was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the item was last updated."
+        }
+      },
+      "required": [
+        "ownerId",
+        "sortOrder",
+        "category",
+        "item",
+        "unit",
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri",
+        "sat",
+        "sun",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/kitchens/{kitchenId}": {
+      "schema": {
+        "$ref": "#/entities/KitchenWorkspace"
+      },
+      "description": "Root kitchen workspace document keyed by the authenticated user's UID."
+    },
+    "/kitchens/{kitchenId}/items/{itemId}": {
+      "schema": {
+        "$ref": "#/entities/ParStockItem"
+      },
+      "description": "Subcollection of Hot Kitchen Par Stock items belonging to the workspace."
+    }
+  }
+}

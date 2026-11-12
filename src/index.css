@@ -44,6 +44,11 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
   .no-print {
     display: none !important;
   }
@@ -65,5 +70,6 @@ input[type='date']::-webkit-calendar-picker-indicator {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;
+    padding: 12px !important;
   }
 }

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toJpeg, toPng } from 'html-to-image';
 import { BarChart3, Camera, Download, Loader2, Printer, ShieldCheck, X } from 'lucide-react';
-import { DAY_KEYS, type StockItem } from '../types/stock';
+import { DAY_KEYS, DAY_LABELS, type StockItem } from '../types/stock';
 import {
   calculateTotal,
   formatDisplayDate,
+  formatShortDate,
   getUniqueCategories,
   getWeekDates,
 } from '../utils/stockUtils';
@@ -51,22 +52,25 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
     onNotify(`กำลังประมวลผลรูปภาพ ${format.toUpperCase()} ความละเอียดสูง...`);
 
     try {
+      const node = reportCardRef.current;
       let dataUrl: string;
       const baseOptions = {
         pixelRatio: 2,
         backgroundColor: '#ffffff',
+        width: node.scrollWidth,
+        height: node.scrollHeight,
         ...(format === 'jpg' ? { quality: 0.95 } : {}),
       };
 
       const renderFn = format === 'jpg' ? toJpeg : toPng;
 
       try {
-        dataUrl = await renderFn(reportCardRef.current, {
+        dataUrl = await renderFn(node, {
           ...baseOptions,
           cacheBust: true,
         });
       } catch {
-        dataUrl = await renderFn(reportCardRef.current, {
+        dataUrl = await renderFn(node, {
           ...baseOptions,
           skipFonts: true,
         });
@@ -168,12 +172,12 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
         </div>
 
         {/* Scrollable Preview Area */}
-        <div className="p-3 sm:p-4 overflow-y-auto custom-scrollbar flex-1 bg-slate-200/60 print:p-0 print:bg-white print:overflow-visible">
-          {/* Printable / Snapshot Report Card (Clean Table-Only Layout) */}
+        <div className="p-3 sm:p-4 overflow-auto custom-scrollbar flex-1 bg-slate-200/60 print:p-0 print:bg-white print:overflow-visible">
+          {/* Printable / Snapshot Report Card (Full-Width Table-Only Layout) */}
           <div
             id="summaryReportCard"
             ref={reportCardRef}
-            className="bg-white rounded-xl shadow-lg border border-slate-300 p-4 max-w-4xl mx-auto space-y-2.5 text-slate-800"
+            className="bg-white rounded-xl shadow-lg border border-slate-300 p-4 w-[820px] min-w-[820px] mx-auto space-y-2.5 text-slate-800 print:w-full print:min-w-0"
           >
             {/* Minimal Title & Week Range */}
             <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-300">
@@ -191,20 +195,29 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                 <thead>
                   <tr className="bg-slate-800 text-white text-[11px] font-bold">
                     <th className="py-1.5 px-2 text-center w-8">#</th>
-                    <th className="py-1.5 px-2.5">รายการวัตถุดิบ</th>
+                    <th className="py-1.5 px-2.5 min-w-[200px]">รายการวัตถุดิบ</th>
                     <th className="py-1.5 px-2 text-center w-16">หน่วย</th>
-                    <th className="py-1.5 px-1.5 text-center w-9">จ.</th>
-                    <th className="py-1.5 px-1.5 text-center w-9">อ.</th>
-                    <th className="py-1.5 px-1.5 text-center w-9">พ.</th>
-                    <th className="py-1.5 px-1.5 text-center w-9">พฤ.</th>
-                    <th className="py-1.5 px-1.5 text-center w-9">ศ.</th>
-                    <th className="py-1.5 px-1.5 text-center w-9 bg-amber-900/50 text-amber-200">
-                      ส.
-                    </th>
-                    <th className="py-1.5 px-1.5 text-center w-9 bg-amber-900/50 text-amber-200">
-                      อา.
-                    </th>
-                    <th className="py-1.5 px-2.5 text-center w-14 bg-slate-900 text-amber-300">
+                    {DAY_KEYS.map((day) => {
+                      const isWeekend = day === 'sat' || day === 'sun';
+                      return (
+                        <th
+                          key={day}
+                          className={`py-1 px-1 text-center w-12 leading-tight ${
+                            isWeekend ? 'bg-amber-900/50 text-amber-200' : ''
+                          }`}
+                        >
+                          <div>{DAY_LABELS[day].thShort}</div>
+                          <div
+                            className={`text-[9px] font-normal tabular-nums ${
+                              isWeekend ? 'text-amber-300' : 'text-slate-300'
+                            }`}
+                          >
+                            {formatShortDate(dates[day])}
+                          </div>
+                        </th>
+                      );
+                    })}
+                    <th className="py-1.5 px-2 text-center w-14 bg-slate-900 text-amber-300">
                       รวม
                     </th>
                   </tr>

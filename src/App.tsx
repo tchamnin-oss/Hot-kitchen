@@ -10,6 +10,8 @@ import {
   Download,
   Folder,
   Info,
+  Maximize2,
+  Minimize2,
   PackageSearch,
   Pencil,
   PlusCircle,
@@ -18,11 +20,14 @@ import {
   Search,
   Trash2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { AddItemModal } from './components/AddItemModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { EditItemModal } from './components/EditItemModal';
 import { SummaryReportModal } from './components/SummaryReportModal';
+import { useTableZoom } from './hooks/useTableZoom';
 import { DEFAULT_MONDAY } from './data/defaultStock';
 import { firebaseProjectInfo } from './firebase';
 import {
@@ -203,6 +208,14 @@ export function App() {
       return matchCategory && matchSearch;
     });
   }, [stockData, currentCategory, searchQuery]);
+
+  const tableZoom = useTableZoom({
+    minScale: 0.32,
+    maxScale: 1.5,
+    step: 0.1,
+    autoFitWhenOverflow: false,
+    measureTrigger: `${isLoadingData}-${filteredItems.length}-${currentCategory}`,
+  });
 
   const handleChangeWeek = async (direction: -1 | 1) => {
     const nextStart = addDays(weekStart, direction * 7);
@@ -547,8 +560,109 @@ export function App() {
 
         {/* Main Table Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print-shadow-none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+          {/* Table Zoom & Fit-to-Screen Toolbar */}
+          <div className="bg-slate-50 border-b border-slate-200 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 no-print">
+            <div className="text-xs text-slate-600 flex items-center gap-2">
+              <span className="font-semibold text-slate-700 tabular-nums">
+                แสดง {filteredItems.length} รายการ
+              </span>
+              <span className="hidden sm:inline text-slate-300">|</span>
+              <span className="text-[11px] text-slate-500">
+                ย่อ/ขยาย หรือจีบนิ้วบนตารางเพื่อดูครบทุกวัน
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <div className="inline-flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={tableZoom.zoomOut}
+                  disabled={!tableZoom.canZoomOut}
+                  title="ย่อตาราง"
+                  aria-label="ย่อตาราง"
+                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-35 disabled:pointer-events-none rounded transition"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-2 text-xs font-bold text-slate-700 tabular-nums min-w-[46px] text-center select-none">
+                  {tableZoom.percent}%
+                </span>
+                <button
+                  type="button"
+                  onClick={tableZoom.zoomIn}
+                  disabled={!tableZoom.canZoomIn}
+                  title="ขยายตาราง"
+                  aria-label="ขยายตาราง"
+                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-35 disabled:pointer-events-none rounded transition"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {(tableZoom.canFit || tableZoom.mode === 'fit') && (
+                <button
+                  type="button"
+                  onClick={tableZoom.toggleFit}
+                  className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition whitespace-nowrap shrink-0 border ${
+                    tableZoom.mode === 'fit'
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500 shadow-xs'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {tableZoom.mode === 'fit' ? (
+                    <>
+                      <Minimize2 className="w-3.5 h-3.5" />
+                      <span>พอดีจอ</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-3.5 h-3.5 text-amber-600" />
+                      <span>ดูเต็มตาราง</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {tableZoom.isScaled && (
+                <button
+                  type="button"
+                  onClick={tableZoom.resetZoom}
+                  className="px-2.5 py-1.5 text-xs font-medium bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg transition whitespace-nowrap shrink-0"
+                >
+                  100%
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div
+            ref={tableZoom.viewportRef}
+            className="overflow-auto custom-scrollbar print:overflow-visible"
+          >
+            <div
+              className="overflow-hidden print:!w-full print:!h-auto print:overflow-visible"
+              style={
+                tableZoom.isScaled
+                  ? {
+                      width: tableZoom.scaledWidth ? `${tableZoom.scaledWidth}px` : undefined,
+                      height: tableZoom.scaledHeight ? `${tableZoom.scaledHeight}px` : undefined,
+                    }
+                  : undefined
+              }
+            >
+              <div
+                ref={tableZoom.contentRef}
+                className="origin-top-left print:!transform-none print:!w-full"
+                style={
+                  tableZoom.isScaled
+                    ? {
+                        width: tableZoom.contentWidth ? `${tableZoom.contentWidth}px` : undefined,
+                        transform: `scale(${tableZoom.scale})`,
+                      }
+                    : undefined
+                }
+              >
+                <table className="w-full min-w-[880px] text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-slate-800 text-slate-200 text-xs uppercase tracking-wider">
                   <th className="py-3 px-3 font-semibold w-10 text-center">#</th>
@@ -732,7 +846,9 @@ export function App() {
                   })
                 )}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
 

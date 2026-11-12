@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toJpeg, toPng } from 'html-to-image';
-import { BarChart3, Camera, Download, Loader2, Printer, ShieldCheck, X } from 'lucide-react';
+import {
+  BarChart3,
+  Camera,
+  Download,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Printer,
+  ShieldCheck,
+  X,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
+import { useTableZoom } from '../hooks/useTableZoom';
 import { DAY_KEYS, DAY_LABELS, type StockItem } from '../types/stock';
 import {
   calculateTotal,
@@ -32,6 +45,15 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
 
   const dates = useMemo(() => getWeekDates(weekStart), [weekStart]);
   const categories = useMemo(() => getUniqueCategories(stockData), [stockData]);
+
+  const previewZoom = useTableZoom({
+    minScale: 0.3,
+    maxScale: 1.5,
+    step: 0.1,
+    autoFitWhenOverflow: true,
+    fixedContentWidth: 820,
+    measureTrigger: `${isOpen}-${stockData.length}`,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -171,14 +193,108 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
           </div>
         </div>
 
+        {/* Preview Zoom Toolbar */}
+        <div className="bg-slate-800 text-slate-200 px-4 py-1.5 border-b border-slate-700 flex flex-wrap items-center justify-between gap-2 text-xs no-print">
+          <span className="text-[11px] text-slate-300">
+            ดูตารางครบทุกวัน (จ.–อา.) • ย่อ/ขยาย หรือจีบนิ้วเพื่อซูมได้
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            <div className="inline-flex items-center bg-slate-900 border border-slate-700 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={previewZoom.zoomOut}
+                disabled={!previewZoom.canZoomOut}
+                title="ย่อพรีวิว"
+                aria-label="ย่อพรีวิว"
+                className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-35 disabled:pointer-events-none rounded transition"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="px-2 text-[11px] font-bold text-slate-100 tabular-nums min-w-[44px] text-center select-none">
+                {previewZoom.percent}%
+              </span>
+              <button
+                type="button"
+                onClick={previewZoom.zoomIn}
+                disabled={!previewZoom.canZoomIn}
+                title="ขยายพรีวิว"
+                aria-label="ขยายพรีวิว"
+                className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-35 disabled:pointer-events-none rounded transition"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {(previewZoom.canFit || previewZoom.mode === 'fit') && (
+              <button
+                type="button"
+                onClick={previewZoom.toggleFit}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg flex items-center gap-1 transition whitespace-nowrap shrink-0 border ${
+                  previewZoom.mode === 'fit'
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500'
+                    : 'bg-slate-900 hover:bg-slate-700 text-slate-200 border-slate-700'
+                }`}
+              >
+                {previewZoom.mode === 'fit' ? (
+                  <>
+                    <Minimize2 className="w-3 h-3" />
+                    <span>พอดีจอ</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3 h-3 text-amber-400" />
+                    <span>ดูเต็มตาราง</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {previewZoom.isScaled && (
+              <button
+                type="button"
+                onClick={previewZoom.resetZoom}
+                className="px-2 py-1 text-[11px] font-medium bg-slate-900 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition whitespace-nowrap shrink-0"
+              >
+                100%
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Scrollable Preview Area */}
-        <div className="p-3 sm:p-4 overflow-auto custom-scrollbar flex-1 bg-slate-200/60 print:p-0 print:bg-white print:overflow-visible">
-          {/* Printable / Snapshot Report Card (Full-Width Table-Only Layout) */}
+        <div
+          ref={previewZoom.viewportRef}
+          className="p-3 sm:p-4 overflow-auto custom-scrollbar flex-1 bg-slate-200/60 print:p-0 print:bg-white print:overflow-visible"
+        >
           <div
-            id="summaryReportCard"
-            ref={reportCardRef}
-            className="bg-white rounded-xl shadow-lg border border-slate-300 p-4 w-[820px] min-w-[820px] mx-auto space-y-2.5 text-slate-800 print:w-full print:min-w-0"
+            className="overflow-hidden mx-auto print:!w-full print:!h-auto print:overflow-visible"
+            style={
+              previewZoom.isScaled
+                ? {
+                    width: previewZoom.scaledWidth ? `${previewZoom.scaledWidth}px` : undefined,
+                    height: previewZoom.scaledHeight ? `${previewZoom.scaledHeight}px` : undefined,
+                  }
+                : { width: '820px' }
+            }
           >
+            <div
+              ref={previewZoom.contentRef}
+              className="w-[820px] origin-top-left print:!transform-none print:!w-full"
+              style={
+                previewZoom.isScaled
+                  ? {
+                      transform: `scale(${previewZoom.scale})`,
+                    }
+                  : undefined
+              }
+            >
+              {/* Printable / Snapshot Report Card (Full-Width Table-Only Layout, kept unscaled for 2x export) */}
+              <div
+                id="summaryReportCard"
+                ref={reportCardRef}
+                className="bg-white rounded-xl shadow-lg border border-slate-300 p-4 w-[820px] min-w-[820px] space-y-2.5 text-slate-800 print:w-full print:min-w-0 print:shadow-none print:border-none"
+              >
             {/* Minimal Title & Week Range */}
             <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-300">
               <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">
@@ -294,6 +410,8 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
             </div>
           </div>
         </div>

@@ -38,26 +38,34 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
   const customCatRef = useRef<HTMLInputElement>(null);
   const customUnitRef = useRef<HTMLInputElement>(null);
 
+  const lastItemDocIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (item) {
-      setSelectedCategory(
-        categories.includes(item.category)
-          ? item.category
-          : categories[0] || item.category
-      );
-      setCustomCategory('');
-      setItemName(item.item);
-      if (isStandardUnit(item.unit)) {
-        setSelectedUnit(item.unit);
-        setCustomUnit('');
-      } else {
-        setSelectedUnit('OTHER');
-        setCustomUnit(item.unit);
+      const targetKey = item.docId ?? String(item.id);
+      if (lastItemDocIdRef.current !== targetKey) {
+        lastItemDocIdRef.current = targetKey;
+        setSelectedCategory(
+          categories.includes(item.category)
+            ? item.category
+            : categories[0] || item.category
+        );
+        setCustomCategory('');
+        setItemName(item.item);
+        if (isStandardUnit(item.unit)) {
+          setSelectedUnit(item.unit);
+          setCustomUnit('');
+        } else {
+          setSelectedUnit('OTHER');
+          setCustomUnit(item.unit);
+        }
+        setErrorMsg('');
+        setIsSaving(false);
+        const timer = setTimeout(() => itemInputRef.current?.focus(), 60);
+        return () => clearTimeout(timer);
       }
-      setErrorMsg('');
-      setIsSaving(false);
-      const timer = setTimeout(() => itemInputRef.current?.focus(), 60);
-      return () => clearTimeout(timer);
+    } else {
+      lastItemDocIdRef.current = null;
     }
   }, [item, categories]);
 
@@ -181,10 +189,11 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                 <input
                   ref={customCatRef}
                   type="text"
+                  maxLength={80}
                   value={customCategory}
                   onChange={(e) => setCustomCategory(e.target.value)}
                   placeholder="ระบุชื่อหมวดหมู่ใหม่..."
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none uppercase"
                 />
               )}
             </div>
@@ -197,6 +206,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
             <input
               ref={itemInputRef}
               type="text"
+              maxLength={160}
               value={itemName}
               onChange={(e) => {
                 setItemName(e.target.value);
@@ -238,6 +248,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({
                 <input
                   ref={customUnitRef}
                   type="text"
+                  maxLength={40}
                   value={customUnit}
                   onChange={(e) => setCustomUnit(e.target.value)}
                   placeholder="ระบุหน่วย..."

@@ -5,6 +5,7 @@ import { UNIT_OPTIONS } from '../data/defaultStock';
 interface AddItemModalProps {
   isOpen: boolean;
   categories: string[];
+  defaultCategory?: string | null;
   onClose: () => void;
   onAdd: (payload: {
     category: string;
@@ -14,14 +15,20 @@ interface AddItemModalProps {
   }) => void;
 }
 
+const FALLBACK_CATEGORIES = ['BREAKFAST / GENERAL', 'MEAT', 'DRY STORE'];
+
 export const AddItemModal: React.FC<AddItemModalProps> = ({
   isOpen,
   categories,
+  defaultCategory,
   onClose,
   onAdd,
 }) => {
+  const availableCategories =
+    categories.length > 0 ? categories : FALLBACK_CATEGORIES;
+
   const [selectedCategory, setSelectedCategory] = useState<string>(
-    categories[0] || 'BREAKFAST / GENERAL'
+    defaultCategory || availableCategories[0]
   );
   const [customCategory, setCustomCategory] = useState('');
   const [itemName, setItemName] = useState('');
@@ -33,10 +40,15 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const itemInputRef = useRef<HTMLInputElement>(null);
   const customCatRef = useRef<HTMLInputElement>(null);
   const customUnitRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setSelectedCategory(categories[0] || 'BREAKFAST / GENERAL');
+    if (isOpen && !wasOpenRef.current) {
+      const initialCat =
+        defaultCategory && availableCategories.includes(defaultCategory)
+          ? defaultCategory
+          : availableCategories[0];
+      setSelectedCategory(initialCat);
       setCustomCategory('');
       setItemName('');
       setSelectedUnit('KG');
@@ -44,9 +56,13 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
       setInitialQty('');
       setErrorMsg('');
       const timer = setTimeout(() => itemInputRef.current?.focus(), 60);
+      wasOpenRef.current = true;
       return () => clearTimeout(timer);
     }
-  }, [isOpen, categories]);
+    if (!isOpen) {
+      wasOpenRef.current = false;
+    }
+  }, [isOpen, defaultCategory, availableCategories]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -149,9 +165,9 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     setTimeout(() => customCatRef.current?.focus(), 40);
                   }
                 }}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none"
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none font-medium text-slate-800"
               >
-                {categories.map((cat) => (
+                {availableCategories.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
@@ -163,10 +179,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 <input
                   ref={customCatRef}
                   type="text"
+                  maxLength={80}
                   value={customCategory}
                   onChange={(e) => setCustomCategory(e.target.value)}
-                  placeholder="ระบุชื่อหมวดหมู่ใหม่..."
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none"
+                  placeholder="ระบุชื่อหมวดหมู่ใหม่ เช่น SEAFOOD, SAUCES"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none uppercase"
                 />
               )}
             </div>
@@ -179,6 +196,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             <input
               ref={itemInputRef}
               type="text"
+              maxLength={160}
               value={itemName}
               onChange={(e) => {
                 setItemName(e.target.value);
@@ -220,6 +238,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                 <input
                   ref={customUnitRef}
                   type="text"
+                  maxLength={40}
                   value={customUnit}
                   onChange={(e) => setCustomUnit(e.target.value)}
                   placeholder="ระบุหน่วย..."

@@ -16,7 +16,6 @@ import {
 import { useTableZoom } from '../hooks/useTableZoom';
 import { DAY_KEYS, DAY_LABELS, type StockItem } from '../types/stock';
 import {
-  calculateTotal,
   formatDisplayDate,
   formatShortDate,
   getUniqueCategories,
@@ -311,14 +310,14 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                 <thead>
                   <tr className="bg-slate-800 text-white text-[11px] font-bold">
                     <th className="py-1.5 px-2 text-center w-8">#</th>
-                    <th className="py-1.5 px-2.5 min-w-[200px]">รายการวัตถุดิบ</th>
+                    <th className="py-1.5 px-2.5 min-w-[220px]">รายการวัตถุดิบ</th>
                     <th className="py-1.5 px-2 text-center w-16">หน่วย</th>
                     {DAY_KEYS.map((day) => {
                       const isWeekend = day === 'sat' || day === 'sun';
                       return (
                         <th
                           key={day}
-                          className={`py-1 px-1 text-center w-12 leading-tight ${
+                          className={`py-1 px-1 text-center w-14 leading-tight ${
                             isWeekend ? 'bg-amber-900/50 text-amber-200' : ''
                           }`}
                         >
@@ -333,9 +332,6 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                         </th>
                       );
                     })}
-                    <th className="py-1.5 px-2 text-center w-14 bg-slate-900 text-amber-300">
-                      รวม
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -345,15 +341,17 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                       <React.Fragment key={cat}>
                         <tr className="bg-slate-200/80 border-y border-slate-300">
                           <td
-                            colSpan={11}
+                            colSpan={10}
                             className="py-1 px-2.5 text-[10.5px] font-extrabold text-slate-800 uppercase tracking-wide"
                           >
                             {cat}
                           </td>
                         </tr>
                         {catItems.map((it, idx) => {
-                          const tot = calculateTotal(it);
-                          const hasCount = tot > 0;
+                          const hasCount = DAY_KEYS.some((d) => {
+                            const v = it[d];
+                            return v !== undefined && v !== '' && Number(v) > 0;
+                          });
                           const rowBg = hasCount
                             ? 'bg-amber-50/60'
                             : idx % 2 === 1
@@ -393,15 +391,6 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                                   </td>
                                 );
                               })}
-                              <td
-                                className={`py-[3px] px-2.5 text-center font-bold text-[11.5px] tabular-nums ${
-                                  hasCount
-                                    ? 'text-slate-900 bg-amber-100/70'
-                                    : 'text-slate-300 bg-slate-50/80'
-                                }`}
-                              >
-                                {tot > 0 ? tot : '-'}
-                              </td>
                             </tr>
                           );
                         })}

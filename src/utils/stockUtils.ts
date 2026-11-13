@@ -63,18 +63,31 @@ export function getUniqueCategories(items: StockItem[]): string[] {
   return Array.from(new Set(items.map((d) => d.category)));
 }
 
+export function groupItemsByCategory(items: StockItem[]): StockItem[] {
+  const orderedCategories = getUniqueCategories(items);
+  const grouped: StockItem[] = [];
+  orderedCategories.forEach((cat) => {
+    items.forEach((item) => {
+      if (item.category === cat) {
+        grouped.push(item);
+      }
+    });
+  });
+  return grouped;
+}
+
 export function exportStockToCSV(stockData: StockItem[], weekStart: string): void {
   const dates = getWeekDates(weekStart);
+  const ordered = groupItemsByCategory(stockData);
   let csv = `\uFEFFPAR STOCK (HOT KITCHEN) [${formatDisplayDate(dates.mon)} - ${formatDisplayDate(dates.sun)}]\n`;
-  csv += `ITEM,CATEGORY,UNIT,${dates.mon} (Mon),${dates.tue} (Tue),${dates.wed} (Wed),${dates.thu} (Thu),${dates.fri} (Fri),${dates.sat} (Sat),${dates.sun} (Sun),TOTAL\n`;
+  csv += `ITEM,CATEGORY,UNIT,${dates.mon} (Mon),${dates.tue} (Tue),${dates.wed} (Wed),${dates.thu} (Thu),${dates.fri} (Fri),${dates.sat} (Sat),${dates.sun} (Sun)\n`;
 
   let lastCat = '';
-  stockData.forEach((row) => {
+  ordered.forEach((row) => {
     if (row.category !== lastCat) {
       lastCat = row.category;
-      csv += `[${lastCat}],,,,,,,,,,,\n`;
+      csv += `[${lastCat}],,,,,,,,,,\n`;
     }
-    const total = calculateTotal(row);
     const line = [
       `"${row.item.replace(/"/g, '""')}"`,
       `"${row.category}"`,
@@ -86,7 +99,6 @@ export function exportStockToCSV(stockData: StockItem[], weekStart: string): voi
       row.fri !== undefined ? row.fri : '',
       row.sat !== undefined ? row.sat : '',
       row.sun !== undefined ? row.sun : '',
-      total,
     ].join(',');
     csv += line + '\n';
   });

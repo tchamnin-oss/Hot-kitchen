@@ -374,20 +374,24 @@ export const SummaryReportModal: React.FC<SummaryReportModalProps> = ({
                               </td>
                               {DAY_KEYS.map((day) => {
                                 const val = it[day];
-                                const hasDayVal = val !== undefined && val !== '' && Number(val) > 0;
-                                const isZero = val === 0;
+                                const hasNum =
+                                  val !== undefined &&
+                                  val !== '' &&
+                                  Number.isFinite(Number(val));
+                                const numVal = hasNum ? Number(val) : NaN;
+                                const isLowStock = hasNum && numVal < 5;
                                 return (
                                   <td
                                     key={day}
                                     className={`py-[3px] px-1.5 text-center font-mono text-[11px] tabular-nums ${
-                                      hasDayVal
-                                        ? 'font-bold text-amber-700'
-                                        : isZero
-                                          ? 'text-slate-500'
+                                      isLowStock
+                                        ? 'font-bold text-red-600'
+                                        : hasNum && numVal > 0
+                                          ? 'font-bold text-amber-700'
                                           : 'text-slate-300'
                                     }`}
                                   >
-                                    {hasDayVal || isZero ? val : '-'}
+                                    {hasNum ? val : '-'}
                                   </td>
                                 );
                               })}

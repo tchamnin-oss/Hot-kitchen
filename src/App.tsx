@@ -825,22 +825,34 @@ export function App() {
                             </span>
                           </td>
 
-                          {DAY_KEYS.map((day) => (
-                            <td key={day} className="py-1 px-1 text-center">
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={row[day] !== undefined ? row[day] : ''}
-                                onChange={(e) =>
-                                  handleUpdateStock(row, day, e.target.value)
-                                }
-                                onBlur={() => handleBlurStock(row, day)}
-                                aria-label={`${row.item} ${DAY_LABELS[day].en}`}
-                                className="w-12 text-center py-1 text-sm rounded border border-slate-200 focus:bg-amber-50 focus:border-amber-500 focus:outline-none transition font-medium text-slate-700 hover:border-slate-300 tabular-nums"
-                              />
-                            </td>
-                          ))}
+                          {DAY_KEYS.map((day) => {
+                            const cellVal = row[day];
+                            const hasNumericVal =
+                              cellVal !== undefined &&
+                              cellVal !== '' &&
+                              Number.isFinite(Number(cellVal));
+                            const isLowStock = hasNumericVal && Number(cellVal) < 5;
+                            return (
+                              <td key={day} className="py-1 px-1 text-center">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="any"
+                                  value={cellVal !== undefined ? cellVal : ''}
+                                  onChange={(e) =>
+                                    handleUpdateStock(row, day, e.target.value)
+                                  }
+                                  onBlur={() => handleBlurStock(row, day)}
+                                  aria-label={`${row.item} ${DAY_LABELS[day].en}`}
+                                  className={`w-12 text-center py-1 text-sm rounded border focus:outline-none transition tabular-nums ${
+                                    isLowStock
+                                      ? 'font-bold text-red-600 border-red-300 bg-red-50/40 focus:bg-red-50 focus:border-red-500 hover:border-red-400'
+                                      : 'font-medium text-slate-700 border-slate-200 focus:bg-amber-50 focus:border-amber-500 hover:border-slate-300'
+                                  }`}
+                                />
+                              </td>
+                            );
+                          })}
 
                           <td className="py-2.5 px-2 text-center no-print">
                             <div className="inline-flex items-center justify-center gap-0.5">

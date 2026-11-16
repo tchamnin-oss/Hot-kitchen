@@ -286,6 +286,45 @@ export async function deleteStockItemFromFirestore(docId: string): Promise<void>
   }
 }
 
+export async function resetWeeklyStockQuantities(): Promise<void> {
+  const itemsPath = `kitchens/${WORKSPACE_ID}/items`;
+
+  let existingDocs;
+  try {
+    const snap = await getDocs(
+      query(
+        collection(db, 'kitchens', WORKSPACE_ID, 'items'),
+        where('workspaceId', '==', WORKSPACE_ID)
+      )
+    );
+    existingDocs = snap.docs;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, itemsPath);
+  }
+
+  for (let i = 0; i < existingDocs.length; i += 400) {
+    const chunk = existingDocs.slice(i, i + 400);
+    const updateBatch = writeBatch(db);
+    chunk.forEach((docSnap) => {
+      updateBatch.update(docSnap.ref, {
+        mon: null,
+        tue: null,
+        wed: null,
+        thu: null,
+        fri: null,
+        sat: null,
+        sun: null,
+        updatedAt: serverTimestamp(),
+      });
+    });
+    try {
+      await updateBatch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, itemsPath);
+    }
+  }
+}
+
 export async function resetKitchenToDefault(): Promise<void> {
   const itemsPath = `kitchens/${WORKSPACE_ID}/items`;
   const kitchenPath = `kitchens/${WORKSPACE_ID}`;

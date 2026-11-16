@@ -6,6 +6,7 @@ interface ConfirmModalProps {
   title: string;
   description: string;
   confirmLabel: string;
+  confirmVariant?: 'danger' | 'warning';
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -15,6 +16,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   title,
   description,
   confirmLabel,
+  confirmVariant = 'danger',
   onConfirm,
   onCancel,
 }) => {
@@ -70,7 +72,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <button
               type="button"
               onClick={onConfirm}
-              className="px-4 py-2 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition shadow-sm whitespace-nowrap shrink-0"
+              className={`px-4 py-2 text-xs font-semibold text-white rounded-lg transition shadow-sm whitespace-nowrap shrink-0 ${
+                confirmVariant === 'warning'
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
+              }`}
             >
               {confirmLabel}
             </button>

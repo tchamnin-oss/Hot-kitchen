@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Cloud,
   Download,
+  Eraser,
   Folder,
   Info,
   Maximize2,
@@ -35,6 +36,7 @@ import {
   deleteStockItemFromFirestore,
   ensureKitchenSeeded,
   resetKitchenToDefault,
+  resetWeeklyStockQuantities,
   subscribeKitchenWorkspace,
   subscribeStockItems,
   updateKitchenWeekStart,
@@ -71,6 +73,7 @@ export function App() {
 
   const [confirmState, setConfirmState] = useState<
     | { type: 'delete'; item: StockItem }
+    | { type: 'reset-weekly' }
     | { type: 'reset' }
     | null
   >(null);
@@ -343,6 +346,14 @@ export function App() {
     }
   };
 
+  const clearPendingEdits = useCallback(() => {
+    Object.values(pendingTimersRef.current).forEach((timerId) =>
+      window.clearTimeout(timerId)
+    );
+    pendingTimersRef.current = {};
+    pendingValuesRef.current = {};
+  }, []);
+
   const handleConfirmAction = async () => {
     if (!confirmState) return;
     const currentConfirm = confirmState;
@@ -357,7 +368,19 @@ export function App() {
       } catch (err) {
         handleRuntimeError(err);
       }
+    } else if (currentConfirm.type === 'reset-weekly') {
+      clearPendingEdits();
+      setIsLoadingData(true);
+      try {
+        await resetWeeklyStockQuantities();
+        showToast('รีเซ็ตจำนวนวัตถุดิบคงเหลือประจำอาทิตย์เรียบร้อยแล้ว');
+      } catch (err) {
+        handleRuntimeError(err);
+      } finally {
+        setIsLoadingData(false);
+      }
     } else if (currentConfirm.type === 'reset') {
+      clearPendingEdits();
       setIsLoadingData(true);
       try {
         await resetKitchenToDefault();
@@ -487,11 +510,22 @@ export function App() {
 
             <button
               type="button"
+              onClick={() => setConfirmState({ type: 'reset-weekly' })}
+              title="ล้างตัวเลขคงเหลือจันทร์–อาทิตย์ โดยเก็บรายชื่อวัตถุดิบไว้"
+              className="px-3 py-2 text-sm font-medium bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <Eraser className="w-4 h-4" />
+              <span>รีเซ็ตยอดประจำอาทิตย์</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setConfirmState({ type: 'reset' })}
+              title="คืนค่ารายการวัตถุดิบเริ่มต้นทั้งหมด 44 รายการ"
               className="px-3 py-2 text-sm font-medium bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>รีเซ็ต</span>
+              <span>รีเซ็ตค่าเริ่มต้น</span>
             </button>
           </div>
         </header>
@@ -933,20 +967,31 @@ export function App() {
         onSave={handleEditItem}
       />
 
-      {/* Custom Confirmation Modal (Delete / Reset) */}
+      {/* Custom Confirmation Modal (Delete / Weekly Reset / Full Reset) */}
       <ConfirmModal
         isOpen={confirmState !== null}
         title={
           confirmState?.type === 'delete'
             ? 'ยืนยันการลบวัตถุดิบ'
-            : 'ยืนยันการรีเซ็ตข้อมูล'
+            : confirmState?.type === 'reset-weekly'
+              ? 'ยืนยันการรีเซ็ตยอดประจำอาทิตย์'
+              : 'ยืนยันการรีเซ็ตข้อมูลเริ่มต้น'
         }
         description={
           confirmState?.type === 'delete'
             ? `คุณต้องการลบ "${confirmState.item.item}" ออกจากรายการสต๊อกใช่หรือไม่?`
-            : 'คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตข้อมูลทั้งหมดกลับเป็นค่าเริ่มต้น (44 รายการ)? การเพิ่ม/ลบรายการจะถูกรีเซ็ต'
+            : confirmState?.type === 'reset-weekly'
+              ? 'ต้องการล้างตัวเลขจำนวนคงเหลือของทุกวัน (จันทร์–อาทิตย์) ในทุกรายการวัตถุดิบใช่หรือไม่? รายชื่อวัตถุดิบและหมวดหมู่ที่คุณเพิ่มไว้จะยังคงอยู่ครบถ้วน'
+              : 'คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตข้อมูลทั้งหมดกลับเป็นค่าเริ่มต้น (44 รายการ)? การเพิ่ม/ลบรายการจะถูกรีเซ็ต'
         }
-        confirmLabel={confirmState?.type === 'delete' ? 'ลบรายการ' : 'รีเซ็ตทั้งหมด'}
+        confirmLabel={
+          confirmState?.type === 'delete'
+            ? 'ลบรายการ'
+            : confirmState?.type === 'reset-weekly'
+              ? 'รีเซ็ตยอดประจำอาทิตย์'
+              : 'รีเซ็ตทั้งหมด'
+        }
+        confirmVariant={confirmState?.type === 'reset-weekly' ? 'warning' : 'danger'}
         onConfirm={handleConfirmAction}
         onCancel={() => setConfirmState(null)}
       />
